@@ -651,14 +651,15 @@ export default function NuevaVentaPage() {
       }
     }
 
-    if (!nombreCliente || !usuarioSesion?.nombreCompleto) {
+    // CAMBIO IMPORTANTE: validación de nombreCliente solo si no es vacío ni solo espacios
+    if (!nombreCliente.trim() || !usuarioSesion?.nombreCompleto) {
       toast({ title: "Faltan datos", description: "Completa los datos del cliente", variant: "destructive" })
       return
     }
 
     const ventaDTO = {
       dniCliente: dniCliente.trim() || "",
-      nombreCliente,
+      nombreCliente: nombreCliente.trim(), // <-- asegurarse que se guarda sin espacios
       dniVendedor: usuarioSesion?.dni || "",
       productos: carrito.map(item => ({
         codBarras: item.codigoBarras,
@@ -692,7 +693,7 @@ export default function NuevaVentaPage() {
         metodoPago,
         montoEfectivo: Number(montoEfectivo) || 0,
         montoYape: Number(montoYape) || 0,
-        nombreCliente,
+        nombreCliente: nombreCliente.trim(), // <-- asegurarse que va trimmeado
         dniCliente: dniCliente.trim(),
         nombreVendedor: usuarioSesion?.nombreCompleto
       })

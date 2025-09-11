@@ -984,7 +984,7 @@ export default function CajaPage() {
                               mov.tipo.slice(1).toLowerCase()}
                           </Badge>
                         </TableCell>
-                        <TableCell className="max-w-[280px] truncate">
+                        <TableCell className="whitespace-pre-line break-words">
                           {mov.descripcion}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
@@ -1427,7 +1427,7 @@ export default function CajaPage() {
                         {m.tipo}
                       </Badge>
                     </TableCell>
-                    <TableCell className="max-w-[240px] truncate">
+                    <TableCell className="whitespace-pre-line break-words">
                       {m.descripcion}
                     </TableCell>
                     <TableCell className="tabular-nums">
