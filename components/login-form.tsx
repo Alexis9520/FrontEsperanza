@@ -189,7 +189,7 @@ export default function LoginForm() {
                           <div>
                             <div className="text-[13px] font-medium">Trabajador</div>
                             <div className="text-xs text-muted-foreground">DNI: <code className="font-mono">22222222</code></div>
-                            <div className="text-xs text-muted-foreground">Contraseña: <code className="font-mono">22222</code></div>
+                            <div className="text-xs text-muted-foreground">Contraseña: <code className="font-mono">222222</code></div>
                           </div>
                         </div>
                       </div>

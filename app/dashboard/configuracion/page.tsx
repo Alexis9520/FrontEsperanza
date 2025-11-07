@@ -100,10 +100,10 @@ export default function ConfiguracionPage() {
   const { toast } = useToast()
 
   const [configuracionGeneral, setConfiguracionGeneral] = useLocalStorageState<ConfGeneral>("configuracionGeneral", {
-    nombreNegocio: "Quantum Boticas",
-    direccion: "Av. Principal 123, Lima",
+    nombreNegocio: "Nueva Esperanza",
+    direccion: "Av. Ferrocarril y Real",
     telefono: "+51 999 888 777",
-    email: "contacto@quantumboticas.com",
+    email: "contacto@nuevaesperanza.com",
     ruc: "20123456789",
     moneda: "S/",
   })

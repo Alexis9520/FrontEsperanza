@@ -76,7 +76,7 @@ const navItems: NavItem[] = [
   { title: "Reportes", href: "/dashboard/reportes", icon: Icons.reportes, adminOnly: true, order: 30 },
   { title: "Usuarios", href: "/dashboard/usuarios", icon: Icons.usuarios, adminOnly: true, order: 40 },
   { title: "Configuración", href: "/dashboard/configuracion", icon: Icons.configuracion, adminOnly: true, order: 41 },
-  { title: "Actualizaciones", href: "/dashboard/actualizaciones", icon: Icons.changelog, adminOnly: true, id: "changelog", order: 50 },
+
   { title: "Desarrolladores", href: "/dashboard/desarrolladores", icon: Icons.desarrolladores, adminOnly: true, order: 60 },
 ]
 

@@ -134,14 +134,14 @@ function obtenerEstadoLote(fechaVencimiento: string) {
 
 /* =========================================================
    COMPONENTE PRINCIPAL
-========================================================= */
+======================================================== */
 export default function ProductosPage() {
   const { toast } = useToast()
 
   const [productos, setProductos] = useState<Producto[]>([])
   const [busqueda, setBusqueda] = useState("")
   const [debouncedBusqueda, setDebouncedBusqueda] = useState("")
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({})
   const [densityCompact, setDensityCompact] = useState(false)
   const [loading, setLoading] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
@@ -382,6 +382,7 @@ export default function ProductosPage() {
   /* ------------ CRUD EDITAR ------------- */
   function editarProducto(p: Producto) {
     setEditandoProducto({
+      id: p.id, // <-- incluir id para usar en rutas
       codigo_barras: p.codigoBarras,
       nombre: p.nombre,
       concentracion: p.concentracion,
@@ -465,6 +466,7 @@ export default function ProductosPage() {
   }
 
   async function guardarEdicion() {
+    if (!editandoProducto) return
     if (!editandoProducto.codigo_barras || !editandoProducto.nombre || !editandoProducto.precio_venta_und) {
       toast({
         title: "Campos obligatorios",
@@ -473,6 +475,17 @@ export default function ProductosPage() {
       })
       return
     }
+
+    if (!editandoProducto.id) {
+      // no tenemos id — evitar enviar a ruta incorrecta
+      toast({
+        title: "Error",
+        description: "Producto sin identificador (id). No se puede guardar.",
+        variant: "destructive"
+      })
+      return
+    }
+
     const stocks = (editandoProducto.stocks || []).map(
       (l: StockLote, idx: number) => ({
         codigoStock:
@@ -482,42 +495,48 @@ export default function ProductosPage() {
         precioCompra: Number(l.precioCompra) || 0
       })
     )
+
+    const body = {
+      codigoBarras: editandoProducto.codigo_barras,
+      nombre: editandoProducto.nombre,
+      concentracion: editandoProducto.concentracion,
+      cantidadGeneral: stocks.reduce(
+        (s: number, l: StockLote) => s + l.cantidadUnidades,
+        0
+      ),
+      cantidadMinima: Number(editandoProducto.cantidad_minima) || 0,
+      precioVentaUnd: Number(editandoProducto.precio_venta_und),
+      descuento: Number(editandoProducto.descuento) || 0,
+      laboratorio: editandoProducto.laboratorio,
+      categoria: editandoProducto.categoria,
+      cantidadUnidadesBlister:
+        Number(editandoProducto.cantidad_unidades_blister) || 0,
+      precioVentaBlister:
+        Number(editandoProducto.precio_venta_blister) || 0,
+      principioActivo: editandoProducto.principioActivo,
+      tipoMedicamento: editandoProducto.tipoMedicamento,
+      presentacion: editandoProducto.presentacion,
+      stocks
+    }
+
     try {
+      // Log para depuración rápida
+      console.log("PUT ->", apiUrl(`/productos/${editandoProducto.id}`), "body:", body)
+
       const res = await fetchWithAuth(
-        apiUrl(`/productos/${editandoProducto.codigo_barras}`),
+        apiUrl(`/productos/${editandoProducto.id}`),
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            codigoBarras: editandoProducto.codigo_barras,
-            nombre: editandoProducto.nombre,
-            concentracion: editandoProducto.concentracion,
-            cantidadGeneral: stocks.reduce(
-              (s: number, l: StockLote) => s + l.cantidadUnidades,
-              0
-            ),
-            cantidadMinima: Number(editandoProducto.cantidad_minima) || 0,
-            precioVentaUnd: Number(editandoProducto.precio_venta_und),
-            descuento: Number(editandoProducto.descuento) || 0,
-            laboratorio: editandoProducto.laboratorio,
-            categoria: editandoProducto.categoria,
-            cantidadUnidadesBlister:
-              Number(editandoProducto.cantidad_unidades_blister) || 0,
-            precioVentaBlister:
-              Number(editandoProducto.precio_venta_blister) || 0,
-            principioActivo: editandoProducto.principioActivo,
-            tipoMedicamento: editandoProducto.tipoMedicamento,
-            presentacion: editandoProducto.presentacion,
-            stocks
-          })
+          body: JSON.stringify(body)
         }
       )
       if (res) {
         toast({ title: "Producto actualizado", description: "Cambios guardados" })
         setProductos(prev =>
           prev.map(p =>
-            p.codigoBarras === editandoProducto.codigo_barras
-              ? { ...res, id: p.id, fechaCreacion: p.fechaCreacion }
+            p.id === editandoProducto.id
+              ? ({ ...p, ...res, id: p.id, fechaCreacion: p.fechaCreacion } as Producto)
               : p
           )
         )
@@ -529,7 +548,8 @@ export default function ProductosPage() {
           variant: "destructive"
         })
       }
-    } catch {
+    } catch (err) {
+      console.error("Error guardarEdicion:", err)
       toast({
         title: "Error",
         description: "Error de conexión",
@@ -538,9 +558,10 @@ export default function ProductosPage() {
     }
   }
 
-  async function eliminarProducto(codigoBarras: string) {
+  async function eliminarProductoPorId(id: number) {
     try {
-      await fetchWithAuth(apiUrl(`/productos/${codigoBarras}`), {
+      console.log("DELETE ->", apiUrl(`/productos/${id}`))
+      await fetchWithAuth(apiUrl(`/productos/${id}`), {
         method: "DELETE"
       })
       toast({ title: "Producto eliminado" })
@@ -561,8 +582,8 @@ export default function ProductosPage() {
   }
 
   /* ------------ UI HELPERS ------------- */
-  function toggleExpand(codigo: string) {
-    setExpandedRows(prev => ({ ...prev, [codigo]: !prev[codigo] }))
+  function toggleExpand(id: number) {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
   function stockMinBadge(producto: Producto) {
@@ -1093,23 +1114,23 @@ export default function ProductosPage() {
               </TableHeader>
               <TableBody>
                 {pageItems.map(p => {
-                  const expanded = !!expandedRows[p.codigoBarras]
+                  const expanded = !!expandedRows[p.id]
                   return (
-                    <React.Fragment key={p.codigoBarras}>
+                    <React.Fragment key={p.id}>
                       <TableRow
                         className={clsx(
                           "group cursor-pointer transition-colors",
                           expanded && "bg-muted/30",
                           "hover:bg-muted/25"
                         )}
-                        onDoubleClick={() => toggleExpand(p.codigoBarras)}
+                        onDoubleClick={() => toggleExpand(p.id)}
                       >
                         <TableCell className="p-0 pl-2">
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => toggleExpand(p.codigoBarras)}
+                            onClick={() => toggleExpand(p.id)}
                             aria-label={expanded ? "Contraer" : "Expandir"}
                           >
                             {expanded ? (
@@ -1229,7 +1250,7 @@ export default function ProductosPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => eliminarProducto(p.codigoBarras)}
+                              onClick={() => eliminarProductoPorId(p.id)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

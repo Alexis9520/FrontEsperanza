@@ -1,5 +1,5 @@
 // Archivo para centralizar la base URL y el helper apiUrl
-export const BASE_URL = "http://37.60.233.86:8090";
+export const BASE_URL = "http://109.199.106.139:8090";
 
 export function apiUrl(path: string) {
   if (path.startsWith("http")) return path;
