@@ -716,11 +716,22 @@ export default function NuevaVentaPage() {
           item.cantidadUnidad
       })),
       metodoPago: {
-        nombre: metodoPago.toUpperCase(),
-        efectivo: metodoPago === "efectivo" || metodoPago === "mixto" ? Number(montoEfectivo) : 0,
-        digital: metodoPago === "yape" || metodoPago === "mixto" ? Number(montoYape) : 0
-      }
+        nombre: metodoPago.toUpperCase(),
+
+        efectivo: (metodoPago === "efectivo" || metodoPago === "mixto") ? Number(montoEfectivo) : 0.0,
+
+        digital: metodoPago === "yape" ? total : (metodoPago === "mixto" ? Number(montoYape) : 0),
+
+        efectivoFix: metodoPago === "efectivo" 
+          ? total // Si todo es efectivo, el neto es el total
+          : (metodoPago === "mixto" 
+              ? (total - (Number(montoYape) || 0)) // Si es mixto, el neto es el total menos lo pagado con yape
+              : 0) // Si es yape puro, el neto en efectivo es 0
+      }
     }
+    // --- CÓDIGO DE DEPURACIÓN AÑADIDO ---
+    console.log("Enviando Venta DTO al Backend:", ventaDTO)
+    // ------------------------------------
 
     try {
       const resp = await fetchWithAuth(apiUrl("/api/ventas"), {

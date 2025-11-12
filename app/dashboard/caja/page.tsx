@@ -93,6 +93,8 @@ type HistorialCaja = {
   fechaCierre: string | null
   efectivoInicial: number
   efectivoFinal: number | null
+  efectivoFinalDeclarado: number | null
+
   diferencia: number | null
   totalYape: number
   usuarioResponsable: string
@@ -178,6 +180,7 @@ export default function CajaPage() {
   const [historial, setHistorial] = useState<HistorialCaja[]>([])
   const [histTotal, setHistTotal] = useState(0)
   const [histLoading, setHistLoading] = useState(false)
+  const [histVueltos, setHistVueltos] = useState<Record<number, number | null>>({})
 
   // Histórico extendido (modal de movimientos)
   const [ultimaCajaCerrada, setUltimaCajaCerrada] = useState<UltimaCajaCerrada | null>(null)
@@ -306,6 +309,8 @@ export default function CajaPage() {
         fechaCierre: h.fechaCierre ?? null,
         efectivoInicial: Number(h.efectivoInicial ?? 0),
         efectivoFinal: h.efectivoFinal != null ? Number(h.efectivoFinal) : null,
+        efectivoFinalDeclarado: h.efectivoFinalDeclarado != null ? Number(h.efectivoFinalDeclarado) : null,
+
         diferencia: h.diferencia != null ? Number(h.diferencia) : null,
         totalYape: Number(h.totalYape ?? 0),
         usuarioResponsable: h.usuarioResponsable ?? "",
@@ -606,6 +611,46 @@ export default function CajaPage() {
       setLoadingMovsCajaSeleccionada(false)
     }
   }
+
+  // Calcula (y cachea) la suma de vueltos para una caja del historial
+  const fetchVueltoForCaja = async (caja: HistorialCaja) => {
+    if (!caja?.fechaApertura) return null
+    const id = caja.id
+    if (id == null) return null
+    // si ya está cacheado (incluyendo null como cargado), no hacemos nada
+    if (Object.prototype.hasOwnProperty.call(histVueltos, id)) return histVueltos[id]
+    try {
+      // rango desde apertura hasta cierre (si no hay cierre, usa fin del día)
+      const from = new Date(caja.fechaApertura)
+      const to = caja.fechaCierre ? new Date(caja.fechaCierre) : new Date(from.getFullYear(), from.getMonth(), from.getDate(), 23, 59, 59, 999)
+      const qs = `?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`
+      const res = await fetchWithToken(apiUrl(`/api/boletas${qs}`))
+      let boletasArr: any[] = []
+      if (!res) boletasArr = []
+      else if (Array.isArray(res.boletas)) boletasArr = res.boletas
+      else if (Array.isArray(res.content)) boletasArr = res.content
+      else if (Array.isArray(res)) boletasArr = res
+
+      const sum = boletasArr.reduce((acc, b) => acc + (Number(b.vuelto ?? 0) || 0), 0)
+      setHistVueltos(prev => ({ ...prev, [id]: sum }))
+      return sum
+    } catch (e) {
+      setHistVueltos(prev => ({ ...prev, [id]: 0 }))
+      return 0
+    }
+  }
+
+  // Prefetch de vueltos para la página de historial actual (mejora UX)
+  useEffect(() => {
+    if (historial.length === 0) return
+    historial.forEach(c => {
+      if (c?.id != null && !Object.prototype.hasOwnProperty.call(histVueltos, c.id)) {
+        // no await: disparamos en background
+        fetchVueltoForCaja(c)
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historial])
 
   const etiquetaOrigenMovimientos = (() => {
     if (cajaAbierta) return "Caja actual (abierta)"
@@ -1089,29 +1134,30 @@ export default function CajaPage() {
               <div className="rounded-xl border bg-background/50 backdrop-blur overflow-x-auto shadow-inner">
                 <Table className="min-w-[1080px]">
                   <TableHeader className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm">
-                    <TableRow>
-                      <TableHead>Apertura</TableHead>
-                      <TableHead>Cierre</TableHead>
-                      <TableHead>Responsable</TableHead>
-                      <TableHead>Ef. Inicial</TableHead>
-                      <TableHead>Ef. Final</TableHead>
-                      <TableHead>Diferencia</TableHead>
-                      <TableHead>Yape</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Ver</TableHead>
-                    </TableRow>
+                      <TableRow>
+                        <TableHead>Apertura</TableHead>
+                        <TableHead>Cierre</TableHead>
+                        <TableHead>Responsable</TableHead>
+                        <TableHead>Ef. Inicial</TableHead>
+                        <TableHead>Ef. Declarado</TableHead>
+                        <TableHead>Ef. Final Sistema</TableHead>
+                        <TableHead>Diferencia</TableHead>
+                        <TableHead>Yape</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Ver</TableHead>
+                      </TableRow>
                   </TableHeader>
                   <TableBody>
                     {histLoading && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           Cargando historial...
                         </TableCell>
                       </TableRow>
                     )}
                     {!histLoading && historial.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           Sin registros.
                         </TableCell>
                       </TableRow>
@@ -1141,10 +1187,19 @@ export default function CajaPage() {
                           <TableCell className="tabular-nums">
                             S/ {caja.efectivoInicial.toFixed(2)}
                           </TableCell>
+                          {/* Ef. Declarado (monto contado al cerrar) - si backend lo expone usa ese campo, si no muestra — */}
                           <TableCell className="tabular-nums">
-                            {caja.efectivoFinal != null
-                              ? "S/ " + caja.efectivoFinal.toFixed(2)
+                            {((caja as any).efectivoFinalDeclarado ?? (caja as any).efectivoContado) != null
+                              ? `S/ ${(Number((caja as any).efectivoFinalDeclarado ?? (caja as any).efectivoContado)).toFixed(2)}`
                               : "—"}
+                          </TableCell>
+                          {/* Ef. Final: mostrar valor que el sistema debe tener (restamos vueltos si están disponibles) */}
+                          <TableCell className="tabular-nums">
+                            {(() => {
+                              if (caja.efectivoFinal == null) return "—"
+                              let expected = Number(caja.efectivoFinal)
+                              return `S/ ${expected.toFixed(2)}`
+                            })()}
                           </TableCell>
                           <TableCell
                             className={cn(
