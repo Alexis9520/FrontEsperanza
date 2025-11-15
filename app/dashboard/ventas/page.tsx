@@ -50,6 +50,7 @@ import {
   safeTime,
   normalizeToDate
 } from "@/lib/formatters"
+import { downloadCSV } from "@/lib/export-utils"
 import { BackgroundFX, CardGlow } from "@/components/dashboard/BackgroundEffects"
 import { PaginationControls } from "@/components/dashboard/Pagination"
 import { SkeletonRow } from "@/components/dashboard/SkeletonLoaders"
@@ -83,23 +84,7 @@ type Boleta = {
 
 type Rango = { from: Date | undefined; to: Date | undefined }
 
-/* ------------------------------ Utilidades export / formato ------------------------------ */
-function arrayToCSV(rows: string[][]) {
-  return rows
-    .map(row => row.map(cell => `"${(cell ?? "").toString().replace(/"/g, '""')}"`).join(","))
-    .join("\n")
-}
-function downloadCSV(filename: string, rows: string[][]) {
-  const BOM = "\uFEFF"
-  const csv = arrayToCSV(rows)
-  const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
+
 function exportarBoletasPDF(boletasFiltradas: Boleta[]) {
   const doc = new jsPDF()
   doc.setFont("helvetica", "normal")
