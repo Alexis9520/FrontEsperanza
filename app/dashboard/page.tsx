@@ -27,6 +27,17 @@ import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/lib/use-toast"
 import { fetchWithAuth } from "@/lib/api"
 import { apiUrl } from "@/components/config"
+import { formatMoney } from "@/lib/formatters"
+import { MetricCard } from "@/components/dashboard/MetricCard"
+import {
+  BackgroundFX,
+  CardAura,
+  GlowLines,
+  DotsPattern,
+  CornerGradient
+} from "@/components/dashboard/BackgroundEffects"
+import { EmptyState, EmptyMini } from "@/components/dashboard/EmptyStates"
+import { PaginationMini } from "@/components/dashboard/Pagination"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -450,74 +461,18 @@ export default function Dashboard() {
   )
 }
 
-/* -------------------- Componentes Auxiliares Modernos -------------------- */
-interface MetricCardProps {
-  title: string
-  value: string
-  valuePrev?: string
-  variation: number
-  diff?: number
-  subtitle?: string
-  icon: React.ReactNode
-  accent?: string
-}
-function MetricCard({ title, value, valuePrev, variation, diff, subtitle, icon, accent }: MetricCardProps) {
-  const positive = variation >= 0
-  return (
-    <Card className={cnGlass(accent)}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative z-10">
-        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {title}
-        </CardTitle>
-        <div className="p-1.5 rounded-md bg-gradient-to-br from-primary/40 via-blue-500/20 to-fuchsia-500/10 text-primary shadow">
-          {icon}
-        </div>
-      </CardHeader>
-      <CardContent className="relative z-10 space-y-3">
-        <div className="text-2xl font-bold tracking-tight tabular-nums flex items-end gap-2">
-          <span>{value}</span>
-          {valuePrev && (
-            <span className="text-xs text-muted-foreground/80 font-semibold">
-              <ArrowDown className="inline-block w-3 h-3 align-[-3px]" /> Prev: {valuePrev}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-xs">
-          <span
-            className={positive ? "text-emerald-500 flex items-center gap-1" : "text-red-500 flex items-center gap-1"}
-          >
-            {positive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-            {positive ? "+" : ""}
-            {variation.toFixed(2)}%
-          </span>
-          {diff !== undefined && (
-            <span className={diff > 0 ? "text-emerald-500" : diff < 0 ? "text-red-500" : ""}>
-              {diff === 0
-                ? "Igual"
-                : diff > 0
-                ? `Hoy +${formatMoney(diff)}`
-                : `Hoy -${formatMoney(Math.abs(diff))}`
-              }
-            </span>
-          )}
-          {subtitle && <span className="text-muted-foreground">{subtitle}</span>}
-        </div>
-        <div className="h-1.5 w-full bg-muted/40 rounded-full overflow-hidden">
-          <div
-            className={positive ? "h-full bg-gradient-to-r from-emerald-500 to-emerald-400" : "h-full bg-gradient-to-r from-red-500 to-pink-500"}
-            style={{ width: `${Math.min(100, Math.abs(variation))}%` }}
-          />
-        </div>
-      </CardContent>
-      <CardAura />
-    </Card>
-  )
-}
-
-/* ...Resto de componentes auxiliares igual que en tu código original... */
+/* -------------------- Componentes Locales -------------------- */
 function CajaCard({ saldo, medios }: { saldo: SaldoCaja; medios: { efectivoPct: number; yapePct: number } }) {
   const efectivoPct = isFinite(medios.efectivoPct) ? medios.efectivoPct : 0
   const yapePct = isFinite(medios.yapePct) ? medios.yapePct : 0
+
+  const cnGlass = (accent?: string) => [
+    "relative overflow-hidden rounded-xl border border-border/60 bg-background/70 backdrop-blur-xl",
+    "before:absolute before:inset-0 before:bg-gradient-to-br before:opacity-90",
+    accent ? `before:${accent}` : "before:from-primary/20 before:to-fuchsia-400/10",
+    "hover:shadow-[0_0_0_2px_#f0abfc55,0_4px_30px_-5px_#f0abfc33] transition-shadow"
+  ].join(" ")
+
   return (
     <Card className={cnGlass("from-cyan-500/25 via-cyan-300/15 to-cyan-500/8")}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 relative z-10">
@@ -566,137 +521,3 @@ function CajaCard({ saldo, medios }: { saldo: SaldoCaja; medios: { efectivoPct: 
   )
 }
 
-function PaginationMini({
-  page,
-  totalPages,
-  onChange,
-  totalItems,
-  pageSize
-}: {
-  page: number
-  totalPages: number
-  onChange: (p: number) => void
-  totalItems: number
-  pageSize: number
-}) {
-  const start = (page - 1) * pageSize + 1
-  const end = Math.min(page * pageSize, totalItems)
-  return (
-    <div className="flex items-center justify-between pt-1 border-t mt-2">
-      <span className="text-[11px] text-muted-foreground tabular-nums">
-        {totalItems === 0 ? "0" : `${start}-${end}`} / {totalItems}
-      </span>
-      <div className="flex items-center gap-1">
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7"
-          disabled={page === 1}
-          onClick={() => onChange(Math.max(1, page - 1))}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-[11px] text-muted-foreground tabular-nums">
-          {page}/{totalPages}
-        </span>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-7 w-7"
-          disabled={page === totalPages}
-          onClick={() => onChange(Math.min(totalPages, page + 1))}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function EmptyState({
-  icon,
-  title,
-  description
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center py-14 text-center gap-3 text-muted-foreground">
-      <div className="p-4 rounded-full bg-muted/50">{icon}</div>
-      <h4 className="text-sm font-medium">{title}</h4>
-      <p className="text-xs max-w-[240px]">{description}</p>
-    </div>
-  )
-}
-
-function EmptyMini({ message }: { message: string }) {
-  return <p className="text-xs text-muted-foreground italic">{message}</p>
-}
-
-/* -------------------- FX / Decoración -------------------- */
-function BackgroundFX() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,#f0abfc22,transparent_60%),radial-gradient(circle_at_80%_70%,#38bdf822,transparent_55%)]" />
-      <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-gradient-to-br from-primary/15 to-fuchsia-500/15 blur-3xl opacity-50 animate-pulse" />
-      <div className="absolute -bottom-40 -left-40 h-[520px] w-[520px] rounded-full bg-gradient-to-tr from-fuchsia-400/15 to-blue-500/15 blur-3xl opacity-40 animate-pulse" />
-    </div>
-  )
-}
-
-function CardAura() {
-  return (
-    <div className="pointer-events-none absolute inset-0 rounded-xl border border-white/10 [mask-image:linear-gradient(to_bottom,rgba(0,0,0,.2),rgba(0,0,0,.8))]">
-      <div className="absolute -inset-px rounded-xl bg-gradient-to-br from-white/5 via-white/0 to-fuchsia-500/10 opacity-70" />
-    </div>
-  )
-}
-
-function GlowLines() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute inset-y-0 left-1/2 w-px bg-gradient-to-b from-transparent via-fuchsia-400/40 to-transparent animate-[pulse_5s_linear_infinite]" />
-      <div className="absolute -left-10 top-0 h-[140%] w-[140%] animate-[spin_30s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#f0abfc22,transparent_55%)]" />
-    </div>
-  )
-}
-
-function DotsPattern() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-60">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_2px_2px,#f472b650_1.5px,transparent_0)] [background-size:18px_18px]" />
-    </div>
-  )
-}
-
-function CornerGradient({ color }: { color: "red" | "amber" }) {
-  const map: Record<string, string> = {
-    red: "from-red-500/40 to-fuchsia-500/0",
-    amber: "from-amber-400/50 to-fuchsia-300/0"
-  }
-  return (
-    <div
-      className={`pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 rounded-full bg-gradient-to-tl ${map[color]} blur-2xl`}
-    />
-  )
-}
-
-/* -------------------- Utilidades -------------------- */
-function formatMoney(v?: number) {
-  if (typeof v !== "number" || isNaN(v)) return "0.00"
-  return v.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function cnGlass(accent?: string) {
-  return [
-    "relative overflow-hidden rounded-xl border border-border/60 bg-background/70 backdrop-blur-xl",
-    "before:absolute before:inset-0 before:bg-gradient-to-br before:opacity-90",
-    accent ? `before:${accent}` : "before:from-primary/20 before:to-fuchsia-400/10",
-    "hover:shadow-[0_0_0_2px_#f0abfc55,0_4px_30px_-5px_#f0abfc33] transition-shadow"
-  ].join(" ")
-}

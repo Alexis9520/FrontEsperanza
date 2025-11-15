@@ -44,6 +44,15 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { DateRangePicker } from "@/components/date-range-picker"
 import { cn } from "@/lib/utils"
+import {
+  formatFechaHora,
+  formatFechaDDMM,
+  safeTime,
+  normalizeToDate
+} from "@/lib/formatters"
+import { BackgroundFX, CardGlow } from "@/components/dashboard/BackgroundEffects"
+import { PaginationControls } from "@/components/dashboard/Pagination"
+import { SkeletonRow } from "@/components/dashboard/SkeletonLoaders"
 
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -91,29 +100,6 @@ function downloadCSV(filename: string, rows: string[][]) {
   a.click()
   URL.revokeObjectURL(url)
 }
-function normalizeToDate(fechaString: string) {
-  if (!fechaString) return null
-  // Backend envía "yyyy-MM-dd HH:mm:ss"; normalizamos a ISO con "T"
-  const normalized = fechaString.includes(" ") && !fechaString.includes("T")
-    ? fechaString.replace(" ", "T")
-    : fechaString
-  const d = new Date(normalized)
-  return isNaN(d.getTime()) ? null : d
-}
-function formatFechaHora(fechaString: string) {
-  const fecha = normalizeToDate(fechaString)
-  if (!fecha) return fechaString || ""
-  return `${fecha.getDate().toString().padStart(2, "0")}/${(fecha.getMonth() + 1)
-    .toString()
-    .padStart(2, "0")}/${fecha.getFullYear()} ${fecha
-    .getHours()
-    .toString()
-    .padStart(2, "0")}:${fecha.getMinutes().toString().padStart(2, "0")}`
-}
-function safeTime(f: string) {
-  const d = normalizeToDate(f)
-  return d ? d.getTime() : 0
-}
 function exportarBoletasPDF(boletasFiltradas: Boleta[]) {
   const doc = new jsPDF()
   doc.setFont("helvetica", "normal")
@@ -137,11 +123,6 @@ function exportarBoletasPDF(boletasFiltradas: Boleta[]) {
     alternateRowStyles: { fillColor: [245, 247, 250] }
   })
   doc.save("boletas.pdf")
-}
-function formatFechaDDMM(d: Date) {
-  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1)
-    .toString()
-    .padStart(2, "0")}`
 }
 
 /* ------------------------------ Componente principal ------------------------------ */
@@ -706,116 +687,3 @@ export default function VentasPage() {
   )
 }
 
-/* ------------------------------ Subcomponentes ------------------------------ */
-function PaginationControls({
-  paginaActual,
-  totalPaginas,
-  tamanoPagina,
-  setPaginaActual,
-  setTamanoPagina,
-  variant = "outline",
-  showSizeSelector = false
-}: {
-  paginaActual: number
-  totalPaginas: number
-  tamanoPagina: number
-  setPaginaActual: (n: number) => void
-  setTamanoPagina: (n: number) => void
-  variant?: "outline" | "secondary"
-  showSizeSelector?: boolean
-}) {
-  return (
-    <div className="flex gap-3 items-center flex-wrap">
-      {showSizeSelector && (
-        <label className="flex items-center gap-2 text-xs">
-          <span className="text-muted-foreground">Por página</span>
-          <select
-            value={tamanoPagina}
-            onChange={e => setTamanoPagina(Number(e.target.value))}
-            className="h-8 rounded-md bg-background/70 border border-border/60 text-xs px-2"
-          >
-            {[5, 10, 20, 50, 100].map(s => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <div className="flex items-center gap-1">
-        <Button
-          size="sm"
-          variant={variant}
-          onClick={() => setPaginaActual(1)}
-          disabled={paginaActual === 1}
-          className="h-8 px-3"
-        >
-          «
-        </Button>
-        <Button
-          size="sm"
-          variant={variant}
-          onClick={() => setPaginaActual(Math.max(1, paginaActual - 1))}
-          disabled={paginaActual === 1}
-          className="h-8 px-3"
-        >
-          Prev
-        </Button>
-        <span className="text-xs text-muted-foreground px-1 tabular-nums">
-          {paginaActual} / {totalPaginas}
-        </span>
-        <Button
-          size="sm"
-          variant={variant}
-          onClick={() =>
-            setPaginaActual(Math.min(totalPaginas, paginaActual + 1))
-          }
-          disabled={paginaActual === totalPaginas}
-          className="h-8 px-3"
-        >
-          Next
-        </Button>
-        <Button
-          size="sm"
-          variant={variant}
-          onClick={() => setPaginaActual(totalPaginas)}
-          disabled={paginaActual === totalPaginas}
-          className="h-8 px-3"
-        >
-          »
-        </Button>
-      </div>
-    </div>
-  )
-}
-
-function SkeletonRow({ cols, compact }: { cols: number; compact?: boolean }) {
-  return (
-    <TableRow>
-      {Array.from({ length: cols }).map((_, i) => (
-        <TableCell key={i} className={cn(compact ? "py-1.5" : "py-3")}>
-          <div className="h-4 w-full animate-pulse rounded bg-muted/40" />
-        </TableCell>
-      ))}
-    </TableRow>
-  )
-}
-
-/* ------------------------------ FX / Decoración ------------------------------ */
-function BackgroundFX() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_20%,hsl(var(--primary)/0.12),transparent_55%),radial-gradient(circle_at_85%_70%,hsl(var(--secondary)/0.12),transparent_55%)]" />
-      <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-gradient-to-br from-primary/20 to-transparent blur-3xl opacity-50 animate-pulse" />
-      <div className="absolute -bottom-40 -left-40 h-[480px] w-[480px] rounded-full bg-gradient-to-tr from-secondary/25 to-transparent blur-3xl opacity-40 animate-pulse" />
-    </div>
-  )
-}
-function CardGlow() {
-  return (
-    <div className="pointer-events-none absolute inset-0 rounded-xl ring-1 ring-border/40 [mask-image:linear-gradient(to_bottom,rgba(255,255,255,0.65),rgba(255,255,255,0.1))]" />
-  )
-}
