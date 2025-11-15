@@ -34,6 +34,8 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/lib/use-toast"
 import { apiUrl } from "@/components/config"
+import { formatMoney, formatFechaHora } from "@/lib/formatters"
+import { BackgroundFX } from "@/components/dashboard/BackgroundEffects"
 import {
   Dialog,
   DialogContent,
@@ -1728,15 +1730,7 @@ function MetricRow({
   )
 }
 
-function BackgroundFX() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_15%_25%,hsl(var(--primary)/0.18),transparent_60%),radial-gradient(circle_at_85%_75%,hsl(var(--secondary)/0.18),transparent_55%)]" />
-      <div className="absolute -top-48 -right-40 h-[560px] w-[560px] rounded-full bg-primary/15 blur-3xl opacity-40 animate-pulse" />
-      <div className="absolute -bottom-48 -left-40 h-[560px] w-[560px] rounded-full bg-secondary/25 blur-3xl opacity-30 animate-pulse" />
+
     </div>
   )
 }

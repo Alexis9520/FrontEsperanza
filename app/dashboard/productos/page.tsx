@@ -33,6 +33,10 @@ import clsx from "clsx"
 import { apiUrl } from "@/components/config"
 import { fetchWithAuth } from "@/lib/api"
 import { useToast } from "@/lib/use-toast"
+import { calcularDiasParaVencer, obtenerEstadoLote } from "@/lib/date-utils"
+import { MetricCard } from "@/components/dashboard/MetricCard"
+import { Field } from "@/components/form/Field"
+import { SectionTitle } from "@/components/form/SectionTitle"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -113,24 +117,6 @@ type Producto = {
 ========================================================= */
 function generarCodigoLote(producto: Producto, index: number) {
   return `${producto.codigoBarras}-${index + 1}`
-}
-
-const today = () => new Date()
-
-function calcularDiasParaVencer(fecha: string) {
-  if (!fecha) return 0
-  const f = new Date(fecha)
-  const h = today()
-  h.setHours(0, 0, 0, 0)
-  f.setHours(0, 0, 0, 0)
-  return Math.ceil((f.getTime() - h.getTime()) / 86400000)
-}
-
-function obtenerEstadoLote(fechaVencimiento: string) {
-  const dias = calcularDiasParaVencer(fechaVencimiento)
-  if (dias < 0) return { estado: "vencido", color: "destructive", texto: "Vencido", dias }
-  if (dias <= 30) return { estado: "vence-pronto", color: "secondary", texto: "Pronto", dias }
-  return { estado: "vigente", color: "outline", texto: "Vigente", dias }
 }
 
 /* =========================================================
@@ -2049,53 +2035,6 @@ function DensityToggle({
   )
 }
 
-function SectionTitle({ title, small = false }: { title: string; small?: boolean }) {
-  return (
-    <h3
-      className={clsx(
-        "font-semibold tracking-tight flex items-center gap-2",
-        small
-          ? "text-xs uppercase text-muted-foreground"
-          : "text-sm text-slate-100"
-      )}
-    >
-      {title}
-    </h3>
-  )
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  step,
-  placeholder
-}: {
-  label: string
-  value: any
-  onChange: (v: string) => void
-  type?: string
-  step?: string
-  placeholder?: string
-}) {
-  const auto =
-    placeholder || `Ingresa ${label.replace("*", "").toLowerCase()}`.trim()
-  return (
-    <div className="space-y-2">
-      <Label className="text-xs font-medium">{label}</Label>
-      <Input
-        value={value}
-        type={type}
-        step={step}
-        placeholder={auto}
-        onChange={e => onChange(e.target.value)}
-        className="focus-visible:ring-1 focus-visible:ring-cyan-400/50"
-      />
-    </div>
-  )
-}
-
 function Detail({ label, value }: { label: string; value: any }) {
   return (
     <p className="text-[12px] leading-snug">
@@ -2129,94 +2068,6 @@ function InfoBox({
       <span className={clsx("text-xs font-semibold tabular-nums", accent)}>
         {value}
       </span>
-    </div>
-  )
-}
-
-/* Métrica card simplificada */
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  accent,
-  warn,
-  danger,
-  loading
-}: {
-  icon: React.ComponentType<any>
-  label: string
-  value: number | string
-  accent: string
-  warn?: boolean
-  danger?: boolean
-  loading?: boolean
-}) {
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-[linear-gradient(135deg,rgba(17,25,38,0.85)_0%,rgba(14,20,30,0.75)_60%,rgba(10,15,24,0.85)_100%)] backdrop-blur-md p-4 flex flex-col gap-3">
-      <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity bg-[radial-gradient(circle_at_35%_20%,rgba(56,189,248,0.18),transparent_60%)]" />
-      <div
-        className={clsx(
-          "absolute inset-0 pointer-events-none",
-          "bg-gradient-to-br",
-          accent,
-          "opacity-30"
-        )}
-      />
-      <div className="relative flex items-center justify-between">
-        <span className="text-[11px] font-medium tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-slate-900/50 ring-1 ring-white/10">
-          <Icon
-            className={clsx(
-              "h-5 w-5",
-              danger
-                ? "text-red-400"
-                : warn
-                ? "text-amber-400"
-                : "text-cyan-300"
-            )}
-          />
-        </div>
-      </div>
-      <div
-        className={clsx(
-          "relative text-2xl font-semibold tabular-nums tracking-tight",
-          danger
-            ? "text-red-300"
-            : warn
-            ? "text-amber-300"
-            : "text-slate-100"
-        )}
-      >
-        {loading ? (
-          <div className="flex items-center gap-2">
-            <svg
-              className="animate-spin h-5 w-5 text-emerald-400"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-              />
-            </svg>
-            <span className="text-sm font-medium">Cargando...</span>
-          </div>
-        ) : (
-          value
-        )}
-      </div>
     </div>
   )
 }

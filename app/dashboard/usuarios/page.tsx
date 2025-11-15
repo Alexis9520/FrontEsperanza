@@ -15,6 +15,9 @@ import {
 import { RoleGuard } from "@/components/RoleGuard"
 import { useToast } from "@/lib/use-toast"
 import ChangePasswordDialog from "@/components/ChangePasswordDialog"
+import { MetricCard } from "@/components/dashboard/MetricCard"
+import { Field } from "@/components/form/Field"
+import { SectionTitle } from "@/components/form/SectionTitle"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -349,7 +352,7 @@ export default function UsuariosPage() {
                   <div className="grid gap-6 py-2">
                     <Section title="Identidad">
                       <div className="grid gap-5 md:grid-cols-2">
-                        <Field label="Nombre completo *" htmlFor="nombre_completo">
+                        <FieldLocal label="Nombre completo *" htmlFor="nombre_completo">
                           <Input
                             id="nombre_completo"
                             placeholder="Ej: María Lozano"
@@ -362,8 +365,8 @@ export default function UsuariosPage() {
                             }
                             ref={nombreCompletoRef}
                           />
-                        </Field>
-                        <Field label="DNI *" htmlFor="dni">
+                        </FieldLocal>
+                        <FieldLocal label="DNI *" htmlFor="dni">
                           <Input
                             id="dni"
                             placeholder="12345678"
@@ -378,13 +381,13 @@ export default function UsuariosPage() {
                             }
                             ref={dniRef}
                           />
-                        </Field>
+                        </FieldLocal>
                       </div>
                     </Section>
 
                     <Section title="Asignación">
                       <div className="grid gap-5 md:grid-cols-3">
-                        <Field label="Rol *" htmlFor="rol">
+                        <FieldLocal label="Rol *" htmlFor="rol">
                           <Select
                             value={nuevoUsuario.rol}
                             onValueChange={(value) => setNuevoUsuario({ ...nuevoUsuario, rol: value })}
@@ -397,8 +400,8 @@ export default function UsuariosPage() {
                               <SelectItem value="trabajador">Trabajador</SelectItem>
                             </SelectContent>
                           </Select>
-                        </Field>
-                        <Field label="Turno *" htmlFor="turno">
+                        </FieldLocal>
+                        <FieldLocal label="Turno *" htmlFor="turno">
                           <Select
                             value={nuevoUsuario.turno}
                             onValueChange={(value) => setNuevoUsuario({ ...nuevoUsuario, turno: value })}
@@ -412,8 +415,8 @@ export default function UsuariosPage() {
                               <SelectItem value="noche">Noche</SelectItem>
                             </SelectContent>
                           </Select>
-                        </Field>
-                        <Field label="" htmlFor="rol">
+                        </FieldLocal>
+                        <FieldLocal label="" htmlFor="rol">
                           <div className="flex gap-2">
                             {nuevoUsuario.rol === "administrador" ? (
                               <Badge className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-semibold shadow ring-1 ring-yellow-500/50">
@@ -427,10 +430,10 @@ export default function UsuariosPage() {
                               <Badge variant="outline">Sin rol</Badge>
                             )}
                           </div>
-                        </Field>
+                        </FieldLocal>
                       </div>
                       <div className="grid gap-5 md:grid-cols-2">
-                        <Field label="Horario entrada *" htmlFor="horario_entrada">
+                        <FieldLocal label="Horario entrada *" htmlFor="horario_entrada">
                           <Input
                             id="horario_entrada"
                             type="time"
@@ -439,8 +442,8 @@ export default function UsuariosPage() {
                               setNuevoUsuario({ ...nuevoUsuario, horario_entrada: e.target.value })
                             }
                           />
-                        </Field>
-                        <Field label="Horario salida *" htmlFor="horario_salida">
+                        </FieldLocal>
+                        <FieldLocal label="Horario salida *" htmlFor="horario_salida">
                           <Input
                             id="horario_salida"
                             type="time"
@@ -449,13 +452,13 @@ export default function UsuariosPage() {
                               setNuevoUsuario({ ...nuevoUsuario, horario_salida: e.target.value })
                             }
                           />
-                        </Field>
+                        </FieldLocal>
                       </div>
                     </Section>
 
                     <Section title="Seguridad">
                       <div className="grid gap-5 md:grid-cols-2">
-                        <Field label="Contraseña *" htmlFor="password">
+                        <FieldLocal label="Contraseña *" htmlFor="password">
                           <Input
                             id="password"
                             type="password"
@@ -467,8 +470,8 @@ export default function UsuariosPage() {
                             ref={passwordRef}
                           />
                           <PasswordStrengthIndicator password={nuevoUsuario.password} />
-                        </Field>
-                        <Field label="Confirmar contraseña *" htmlFor="confirmPassword">
+                        </FieldLocal>
+                        <FieldLocal label="Confirmar contraseña *" htmlFor="confirmPassword">
                           <Input
                             id="confirmPassword"
                             type="password"
@@ -495,7 +498,7 @@ export default function UsuariosPage() {
                                 : "No coincide"}
                             </p>
                           )}
-                        </Field>
+                        </FieldLocal>
                       </div>
                     </Section>
                   </div>
@@ -615,7 +618,7 @@ export default function UsuariosPage() {
             {editandoUsuario && (
               <div className="grid gap-6 py-2">
                 <div className="grid gap-5 md:grid-cols-2">
-                  <Field label="Nombre completo *" htmlFor="edit-nombre_completo">
+                  <FieldLocal label="Nombre completo *" htmlFor="edit-nombre_completo">
                     <Input
                       id="edit-nombre_completo"
                       value={editandoUsuario.nombre_completo}
@@ -626,8 +629,8 @@ export default function UsuariosPage() {
                         })
                       }
                     />
-                  </Field>
-                  <Field label="DNI *" htmlFor="edit-dni">
+                  </FieldLocal>
+                  <FieldLocal label="DNI *" htmlFor="edit-dni">
                     <Input
                       id="edit-dni"
                       maxLength={8}
@@ -639,10 +642,10 @@ export default function UsuariosPage() {
                         })
                       }
                     />
-                  </Field>
+                  </FieldLocal>
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
-                  <Field label="Rol *" htmlFor="edit-rol">
+                  <FieldLocal label="Rol *" htmlFor="edit-rol">
                     <Select
                       value={editandoUsuario.rol}
                       onValueChange={(value) =>
@@ -657,8 +660,8 @@ export default function UsuariosPage() {
                         <SelectItem value="trabajador">Trabajador</SelectItem>
                       </SelectContent>
                     </Select>
-                  </Field>
-                  <Field label="Turno *" htmlFor="edit-turno">
+                  </FieldLocal>
+                  <FieldLocal label="Turno *" htmlFor="edit-turno">
                     <Select
                       value={editandoUsuario.turno}
                       onValueChange={(value) =>
@@ -674,10 +677,10 @@ export default function UsuariosPage() {
                         <SelectItem value="noche">Noche</SelectItem>
                       </SelectContent>
                     </Select>
-                  </Field>
+                  </FieldLocal>
                 </div>
                 <div className="grid gap-5 md:grid-cols-2">
-                  <Field label="Entrada *" htmlFor="edit-horario_entrada">
+                  <FieldLocal label="Entrada *" htmlFor="edit-horario_entrada">
                     <Input
                       id="edit-horario_entrada"
                       type="time"
@@ -689,8 +692,8 @@ export default function UsuariosPage() {
                         })
                       }
                     />
-                  </Field>
-                  <Field label="Salida *" htmlFor="edit-horario_salida">
+                  </FieldLocal>
+                  <FieldLocal label="Salida *" htmlFor="edit-horario_salida">
                     <Input
                       id="edit-horario_salida"
                       type="time"
@@ -702,7 +705,7 @@ export default function UsuariosPage() {
                         })
                       }
                     />
-                  </Field>
+                  </FieldLocal>
                 </div>
               </div>
             )}
@@ -757,7 +760,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Field({
+// Local Field component with different signature from shared Field component
+function FieldLocal({
   label,
   htmlFor,
   children,
@@ -781,7 +785,8 @@ function Field({
   )
 }
 
-function MetricCard({
+// Local MetricCard with custom gold variant styling
+function MetricCardLocal({
   title,
   subtitle,
   value,
