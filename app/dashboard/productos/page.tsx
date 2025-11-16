@@ -54,6 +54,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import Spinner from "@/components/ui/Spinner"
 import { ComboBoxCategoria } from "@/components/ComboBoxCategoria"
+import { ComboBoxProveedor } from "@/components/ComboBoxProveedor"
 import { Label } from "@/components/ui/label"
 import {
   Dialog,
@@ -104,6 +105,7 @@ type Producto = {
   principioActivo?: string
   tipoMedicamento?: string
   presentacion?: string
+  proveedorId?: number | null
   fechaCreacion?: string
   stocks?: StockLote[]
 }
@@ -169,6 +171,7 @@ export default function ProductosPage() {
     principioActivo: "",
     tipoMedicamento: "GENÉRICO",
     presentacion: "",
+    proveedorId: null as number | null,
     stocks: [] as StockLote[]
   })
   const [nuevoLote, setNuevoLote] = useState<StockLote>({
@@ -397,6 +400,7 @@ export default function ProductosPage() {
       principioActivo: nuevoProducto.principioActivo && nuevoProducto.principioActivo.trim() !== "" ? nuevoProducto.principioActivo : null,
       tipoMedicamento: nuevoProducto.tipoMedicamento || null,
       presentacion: nuevoProducto.presentacion && nuevoProducto.presentacion.trim() !== "" ? nuevoProducto.presentacion : null,
+      proveedorId: nuevoProducto.proveedorId || null,
       stocks: stocks.length > 0 ? stocks : []
     }
     try {
@@ -424,6 +428,7 @@ export default function ProductosPage() {
         principioActivo: "",
         tipoMedicamento: "GENÉRICO",
         presentacion: "",
+        proveedorId: null,
         stocks: []
       })
       setNuevoLote({
@@ -461,6 +466,7 @@ export default function ProductosPage() {
       principioActivo: p.principioActivo || "",
       tipoMedicamento: p.tipoMedicamento || "GENÉRICO",
       presentacion: p.presentacion || "",
+      proveedorId: p.proveedorId ?? null,
       stocks: (p.stocks || []).map((l, idx) => ({
         codigoStock: l.codigoStock || generarCodigoLote(p, idx),
         cantidadUnidades: l.cantidadUnidades,
@@ -578,6 +584,7 @@ export default function ProductosPage() {
       principioActivo: editandoProducto.principioActivo && editandoProducto.principioActivo.trim() !== "" ? editandoProducto.principioActivo : null,
       tipoMedicamento: editandoProducto.tipoMedicamento || null,
       presentacion: editandoProducto.presentacion && editandoProducto.presentacion.trim() !== "" ? editandoProducto.presentacion : null,
+      proveedorId: editandoProducto.proveedorId || null,
       stocks: stocks.length > 0 ? stocks : []
     }
 
@@ -874,6 +881,15 @@ export default function ProductosPage() {
                       setNuevoProducto(p => ({ ...p, laboratorio: v }))
                     }
                   />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Proveedor</Label>
+                    <ComboBoxProveedor
+                      value={nuevoProducto.proveedorId}
+                      onChange={proveedorId =>
+                        setNuevoProducto(p => ({ ...p, proveedorId }))
+                      }
+                    />
+                  </div>
                   <Field
                     label="Stock mínimo"
                     type="number"
@@ -1802,6 +1818,18 @@ export default function ProductosPage() {
                       }))
                     }
                   />
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Proveedor</Label>
+                    <ComboBoxProveedor
+                      value={editandoProducto.proveedorId}
+                      onChange={proveedorId =>
+                        setEditandoProducto((p: any) => ({
+                          ...p,
+                          proveedorId
+                        }))
+                      }
+                    />
+                  </div>
                   <Field
                     label="Stock mínimo"
                     type="number"
