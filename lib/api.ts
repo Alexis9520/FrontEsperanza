@@ -105,6 +105,51 @@ export type InventoryProductFull = {
 export type InventoryLot = { lote_id: number; codigo_barras: string; cantidad_unidades: number; fecha_vencimiento: string | null; precio_compra: number | null; estado: string }
 export type CajaSummary = { ingresos: number; egresos: number; neto: number }
 
+/* Lotes Report - Batch/Lot tracking */
+export type LoteReportDTO = {
+  productoId: number;
+  nombreProducto: string;
+  codigoBarras: string;
+  concentracion: string | null;
+  presentacion: string | null;
+  stockId: number;
+  codigoStock: string | null;
+  cantidadUnidades: number;
+  cantidadInicial: number;
+  fechaVencimiento: string | null;
+  precioCompra: number | null;
+  fechaCreacion: string | null;
+}
+
+/* Products endpoint types */
+export type ProductStock = {
+  codigoStock: string | null;
+  cantidadUnidades: number;
+  fechaVencimiento: string | null;
+  precioCompra: number | null;
+}
+
+export type ProductDTO = {
+  id: number;
+  codigoBarras: string;
+  nombre: string;
+  concentracion: string | null;
+  cantidadGeneral: number;
+  cantidadMinima: number | null;
+  precioVentaUnd: number | null;
+  descuento: number | null;
+  laboratorio: string | null;
+  categoria: string | null;
+  cantidadUnidadesBlister: number | null;
+  precioVentaBlister: number | null;
+  principioActivo: string | null;
+  tipoMedicamento: string | null;
+  presentacion: string | null;
+  proveedorId: number | null;
+  proveedorNombre: string | null;
+  stocks: ProductStock[];
+}
+
 /* Utils */
 function toQuery(params?: Record<string, any>) {
   if (!params) return ""; const search = new URLSearchParams();
@@ -155,6 +200,17 @@ export function exportSalesByProduct({ from, to }: { from: Date; to: Date }) { c
 export function exportInventoryProfessional(params: { search?: string; categoria?: string; activo?: boolean } = {}) {
   const q = toQuery(params)
   return downloadWithAuth(`/api/reports/inventory/export-professional${q}`, "Inventario_Botica.xlsx")
+}
+
+/* Lotes Report (batches/lots by date range) */
+export function getLotesReport({ fechaInicio, fechaFin }: { fechaInicio: string; fechaFin: string }) {
+  return fetchWithAuth(apiUrl("/api/reports/lotes-json") + toQuery({ fechaInicio, fechaFin })) as Promise<LoteReportDTO[]>;
+}
+
+/* Products endpoint - New inventory source */
+export function getProducts(params: { page?: number; size?: number; search?: string; categoria?: string; laboratorio?: string; tipoMedicamento?: string } = {}) {
+  const { page = 0, size = 10, ...rest } = params;
+  return fetchWithAuth(apiUrl("/productos") + toQuery({ page, size, ...rest })) as Promise<PageResponse<ProductDTO>>;
 }
 
 /* Ventas / Boletas (accesible a trabajador + admin) */
