@@ -37,6 +37,8 @@ import { DateRangePicker } from "@/components/reportes/DateRangePicker"
 import { StatCard } from "@/components/reportes/StatCard"
 import { DataTable, Column } from "@/components/reportes/DataTable"
 import { InventoryTable } from "@/components/reportes/InventoryTable"
+import { ProductsInventoryTable } from "@/components/reportes/ProductsInventoryTable"
+import { LotesTable } from "@/components/reportes/LotesTable"
 import CustomersTable from "@/components/reportes/CustomersTable"
 import Spinner from "@/components/ui/Spinner"
 import {
@@ -344,6 +346,7 @@ export default function ReportesPage() {
             <TabsTrigger value="resumen">Resumen</TabsTrigger>
             <TabsTrigger value="ventas">Ventas</TabsTrigger>
             <TabsTrigger value="inventario">Inventario</TabsTrigger>
+            <TabsTrigger value="lotes">Lotes</TabsTrigger>
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
           </TabsList>
 
@@ -482,14 +485,28 @@ export default function ReportesPage() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <Boxes className="w-5 h-5 text-emerald-400" />
-                  Inventario completo
+                  Inventario de Productos
                 </CardTitle>
-                <CardDescription>Todos los productos, lotes y métricas de stock</CardDescription>
+                <CardDescription>Gestiona el inventario, filtra por categoría, laboratorio y genera reportes de productos seleccionados</CardDescription>
               </div>
-              
             </CardHeader>
             <CardContent>
-              <InventoryTable />
+              <ProductsInventoryTable />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="lotes">
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-amber-400" />
+                Reporte de Lotes
+              </CardTitle>
+              <CardDescription>Visualiza los lotes ingresados en el período seleccionado</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LotesTable from={from} to={to} />
             </CardContent>
           </Card>
         </TabsContent>
