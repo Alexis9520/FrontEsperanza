@@ -30,7 +30,7 @@ import {
 } from "lucide-react"
 import clsx from "clsx"
 
-import { apiUrl } from "@/components/config"
+import { apiUrl } from "@/lib/config"
 import { fetchWithAuth } from "@/lib/api"
 import { useToast } from "@/lib/use-toast"
 

@@ -46,7 +46,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/lib/use-toast"
-import { apiUrl } from "@/components/config"
+import { apiUrl } from "@/lib/config"
 import { buildTicketHTML, VentaPreview } from "@/lib/print-utils"
 import { cn } from "@/lib/utils"
 

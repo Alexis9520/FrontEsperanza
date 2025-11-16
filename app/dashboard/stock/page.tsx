@@ -24,7 +24,7 @@ import {
 } from "lucide-react"
 import { useToast } from "@/lib/use-toast"
 import { fetchWithAuth } from "@/lib/api"
-import { apiUrl } from "@/components/config"
+import { apiUrl } from "@/lib/config"
 import clsx from "clsx"
 
 /* --------- TIPOS ORIGINALES (lotes) ---------- */
