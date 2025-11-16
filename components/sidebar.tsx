@@ -21,6 +21,8 @@ import {
   Code2,
   ChevronLeft,
   ChevronRight,
+  Building2,
+  PackagePlus,
 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { CHANGELOG, isRecent } from "@/lib/changelog"
@@ -58,6 +60,8 @@ const Icons = {
   caja: <Wallet className="h-[18px] w-[18px]" />,
   productos: <Pill className="h-[18px] w-[18px]" />,
   stock: <Box className="h-[18px] w-[18px]" />,
+  proveedores: <Building2 className="h-[18px] w-[18px]" />,
+  agregarStock: <PackagePlus className="h-[18px] w-[18px]" />,
   reportes: <BarChart3 className="h-[18px] w-[18px]" />,
   usuarios: <Users className="h-[18px] w-[18px]" />,
   configuracion: <Settings className="h-[18px] w-[18px]" />,
@@ -74,6 +78,8 @@ const navItems: NavItem[] = [
   { title: "Caja", href: "/dashboard/caja", icon: Icons.caja, order: 12 },
   { title: "Productos", href: "/dashboard/productos", icon: Icons.productos, adminOnly: true, order: 20 },
   { title: "Stock", href: "/dashboard/stock", icon: Icons.stock, order: 21 },
+  { title: "Proveedores", href: "/dashboard/proveedores", icon: Icons.proveedores, adminOnly: true, order: 22 },
+  { title: "Agregar Stock", href: "/dashboard/agregar-stock", icon: Icons.agregarStock, adminOnly: true, order: 23 },
   { title: "Reportes", href: "/dashboard/reportes", icon: Icons.reportes, adminOnly: true, order: 30 },
   { title: "Usuarios", href: "/dashboard/usuarios", icon: Icons.usuarios, adminOnly: true, order: 40 },
   { title: "Configuración", href: "/dashboard/configuracion", icon: Icons.configuracion, adminOnly: true, order: 41 },
