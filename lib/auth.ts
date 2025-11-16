@@ -1,4 +1,4 @@
-import { apiUrl } from "../components/config"; 
+import { apiUrl } from "./config"; 
 
 export async function login(dni: string, password: string): Promise<{ ok: boolean, error?: string }> {
   const res = await fetch(apiUrl("/auth/login"), {

@@ -26,7 +26,7 @@ import {
 import { useAuth } from "@/components/auth-provider"
 import { useToast } from "@/lib/use-toast"
 import { fetchWithAuth } from "@/lib/api"
-import { apiUrl } from "@/components/config"
+import { apiUrl } from "@/lib/config"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"

@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { User, Calendar, Shield, Sparkles } from "lucide-react"
 import { fetchWithAuth } from "@/lib/api"
-import { apiUrl } from "@/components/config"
+import { apiUrl } from "@/lib/config"
 
 function BgAura() {
   return (

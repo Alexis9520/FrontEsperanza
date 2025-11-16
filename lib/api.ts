@@ -1,4 +1,4 @@
-import { apiUrl } from "../components/config"
+import { apiUrl } from "./config"
 
 type ToastFn = (opts: { title: string; description: string; variant?: "destructive" | "default" }) => void;
 
