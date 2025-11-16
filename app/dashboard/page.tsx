@@ -121,7 +121,7 @@ export default function Dashboard() {
   // Carga ventas por hora (solo para admin)
   useEffect(() => {
     if (loading || !isAdmin) return
-    fetchWithAuth(apiUrl("/api/dashboard/ventas-por-hora"), {}, toast)
+    fetchWithAuth(apiUrl("api/dashboard/ventas-por-hora"), {}, toast)
       .then((data) => setVentasPorHora(data ?? []))
       .catch(() => setVentasPorHora([]))
   }, [loading, isAdmin, toast])

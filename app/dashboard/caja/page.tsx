@@ -158,6 +158,9 @@ export default function CajaPage() {
 
   const [usuario, setUsuario] = useState<Usuario | null>(null)
 
+  // Rol derivado
+  const isAdmin = usuario?.rol?.toLowerCase() === "administrador"
+  
   const [cajaAbierta, setCajaAbierta] = useState(false)
   const [resumen, setResumen] = useState<CajaResumen | null>(null)
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
@@ -181,6 +184,8 @@ export default function CajaPage() {
   const [histTotal, setHistTotal] = useState(0)
   const [histLoading, setHistLoading] = useState(false)
   const [histVueltos, setHistVueltos] = useState<Record<number, number | null>>({})
+  // Filtro por responsable (cliente-side)
+  const [histFilterResponsable, setHistFilterResponsable] = useState<string>("todos")
 
   // Histórico extendido (modal de movimientos)
   const [ultimaCajaCerrada, setUltimaCajaCerrada] = useState<UltimaCajaCerrada | null>(null)
@@ -582,6 +587,21 @@ export default function CajaPage() {
       mov.tipo.toLowerCase() === movimientoFiltroTipo.toLowerCase())
   )
 
+  // Lista de responsables única para el selector de historial
+  const responsables = useMemo(() => {
+    const s = new Set<string>()
+    historial.forEach(h => {
+      if (h.usuarioResponsable) s.add(h.usuarioResponsable)
+    })
+    return Array.from(s).filter(Boolean)
+  }, [historial])
+
+  // Filtrado cliente-side del historial por responsable
+  const filteredHistorial = useMemo(() => {
+    if (!historial || histFilterResponsable === "todos") return historial
+    return historial.filter(h => h.usuarioResponsable === histFilterResponsable)
+  }, [historial, histFilterResponsable])
+
   const cargarMovimientosCajaHist = async (caja: HistorialCaja) => {
     setCajaSeleccionada(caja)
     setDialogHistMovsOpen(true)
@@ -768,43 +788,45 @@ export default function CajaPage() {
         )}
       </header>
 
-      {/* KPIs */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 relative">
-        <MetricCard
-          title="Efectivo actual"
-          icon={<DollarSign className="h-4 w-4" />}
-          value={resumen ? resumen.efectivo : null}
-          suffix="S/"
-          accent="from-emerald-500/25 to-emerald-500/5"
-          footer="Disponible en caja"
-        />
-        <MetricCard
-          title="Pagos Yape"
-          icon={<Calculator className="h-4 w-4" />}
-          value={resumen ? resumen.totalYape : null}
-          suffix="S/"
-          accent="from-cyan-500/25 to-cyan-500/5"
-          footer="Transacciones digitales"
-        />
-        <MetricCard
-          title="Ingresos"
-          icon={<TrendingUp className="h-4 w-4" />}
-          value={resumen ? resumen.ingresos : null}
-          suffix="S/"
-          positive
-          accent="from-blue-500/25 to-blue-500/5"
-          footer="Movimientos manuales"
-        />
-        <MetricCard
-          title="Egresos"
-          icon={<TrendingDown className="h-4 w-4" />}
-          value={resumen ? resumen.egresos : null}
-          suffix="S/"
-          negative
-          accent="from-red-500/25 to-red-500/5"
-          footer="Salidas registradas"
-        />
-      </section>
+      {/* KPIs (solo admin) */}
+      {isAdmin && (
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 relative">
+          <MetricCard
+            title="Efectivo actual"
+            icon={<DollarSign className="h-4 w-4" />}
+            value={resumen ? resumen.efectivo : null}
+            suffix="S/"
+            accent="from-emerald-500/25 to-emerald-500/5"
+            footer="Disponible en caja"
+          />
+          <MetricCard
+            title="Pagos Yape"
+            icon={<Calculator className="h-4 w-4" />}
+            value={resumen ? resumen.totalYape : null}
+            suffix="S/"
+            accent="from-cyan-500/25 to-cyan-500/5"
+            footer="Transacciones digitales"
+          />
+          <MetricCard
+            title="Ingresos"
+            icon={<TrendingUp className="h-4 w-4" />}
+            value={resumen ? resumen.ingresos : null}
+            suffix="S/"
+            positive
+            accent="from-blue-500/25 to-blue-500/5"
+            footer="Movimientos manuales"
+          />
+          <MetricCard
+            title="Egresos"
+            icon={<TrendingDown className="h-4 w-4" />}
+            value={resumen ? resumen.egresos : null}
+            suffix="S/"
+            negative
+            accent="from-red-500/25 to-red-500/5"
+            footer="Salidas registradas"
+          />
+        </section>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="movimientos" className="space-y-6 relative z-10">
@@ -815,12 +837,16 @@ export default function CajaPage() {
           <FancyTab value="movimientos" icon={<Layers className="h-4 w-4" />}>
             Movimientos
           </FancyTab>
-          <FancyTab value="historial" icon={<History className="h-4 w-4" />}>
-            Historial
-          </FancyTab>
-          <FancyTab value="resumen" icon={<LibraryBig className="h-4 w-4" />}>
-            Resumen
-          </FancyTab>
+          {isAdmin && (
+            <>
+              <FancyTab value="historial" icon={<History className="h-4 w-4" />}>
+                Historial
+              </FancyTab>
+              <FancyTab value="resumen" icon={<LibraryBig className="h-4 w-4" />}>
+                Resumen
+              </FancyTab>
+            </>
+          )}
         </TabsList>
 
         {/* ESTADO */}
@@ -1077,293 +1103,317 @@ export default function CajaPage() {
           </GlassPanel>
         </TabsContent>
 
-        {/* HISTORIAL */}
-        <TabsContent value="historial" className="space-y-6">
-          <GlassPanel>
-            <CardHeader className="pb-4">
-              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="h-5 w-5 text-primary" />
-                    Historial de Cajas
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Aperturas y cierres ordenados del más reciente al más antiguo
-                  </CardDescription>
-                </div>
-
-                <div className="flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs">Tamaño</Label>
-                    <Select
-                      value={String(histPageSize)}
-                      onValueChange={v => {
-                        setHistPageSize(Number(v))
-                        setHistPage(1)
-                      }}
-                    >
-                      <SelectTrigger className="h-8 w-[90px] bg-background/50 backdrop-blur">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {[5, 10, 25, 50].map(n => (
-                          <SelectItem key={n} value={String(n)}>
-                            {n}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+        {/* HISTORIAL (solo admin) */}
+        {isAdmin && (
+          <TabsContent value="historial" className="space-y-6">
+            <GlassPanel>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <History className="h-5 w-5 text-primary" />
+                      Historial de Cajas
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Aperturas y cierres ordenados del más reciente al más antiguo
+                    </CardDescription>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {histLoading
-                      ? "Cargando..."
-                      : (histTotal === 0
-                        ? "0"
-                        : `${fromIdx}–${toIdx}`) + ` de ${histTotal}`}
+
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Tamaño</Label>
+                      <Select
+                        value={String(histPageSize)}
+                        onValueChange={v => {
+                          setHistPageSize(Number(v))
+                          setHistPage(1)
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[90px] bg-background/50 backdrop-blur">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[5, 10, 25, 50].map(n => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs">Responsable</Label>
+                      <Select
+                        value={histFilterResponsable}
+                        onValueChange={v => {
+                          setHistFilterResponsable(v)
+                          setHistPage(1)
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-[180px] bg-background/50 backdrop-blur">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos</SelectItem>
+                          {responsables.map(r => (
+                            <SelectItem key={r} value={r}>{r}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {histLoading
+                        ? "Cargando..."
+                        : (histTotal === 0
+                          ? "0"
+                          : `${fromIdx}–${toIdx}`) + ` de ${histTotal}`}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
+              </CardHeader>
 
-            <CardContent>
-              <div className="rounded-xl border bg-background/50 backdrop-blur overflow-x-auto shadow-inner">
-                <Table className="min-w-[1080px]">
-                  <TableHeader className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm">
-                      <TableRow>
-                        <TableHead>Apertura</TableHead>
-                        <TableHead>Cierre</TableHead>
-                        <TableHead>Responsable</TableHead>
-                        <TableHead>Ef. Inicial</TableHead>
-                        <TableHead>Ef. Declarado</TableHead>
-                        <TableHead>Ef. Final Sistema</TableHead>
-                        <TableHead>Diferencia</TableHead>
-                        <TableHead>Yape</TableHead>
-                        <TableHead>Estado</TableHead>
-                        <TableHead>Ver</TableHead>
-                      </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {histLoading && (
-                      <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                          Cargando historial...
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {!histLoading && historial.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
-                          Sin registros.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {!histLoading && historial.map(caja => {
-                      const diff = caja.diferencia
-                      return (
-                        <TableRow
-                          key={caja._key}
-                          className="hover:bg-muted/30 transition-colors"
-                        >
-                          <TableCell className="text-xs md:text-sm">
-                            {new Date(caja.fechaApertura).toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-xs md:text-sm">
-                            {caja.fechaCierre ? (
-                              new Date(caja.fechaCierre).toLocaleString()
-                            ) : (
-                              <span className="text-amber-500 font-medium">
-                                Abierta
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-xs md:text-sm">
-                            {caja.usuarioResponsable}
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            S/ {caja.efectivoInicial.toFixed(2)}
-                          </TableCell>
-                          {/* Ef. Declarado (monto contado al cerrar) - si backend lo expone usa ese campo, si no muestra — */}
-                          <TableCell className="tabular-nums">
-                            {((caja as any).efectivoFinalDeclarado ?? (caja as any).efectivoContado) != null
-                              ? `S/ ${(Number((caja as any).efectivoFinalDeclarado ?? (caja as any).efectivoContado)).toFixed(2)}`
-                              : "—"}
-                          </TableCell>
-                          {/* Ef. Final: mostrar valor que el sistema debe tener (restamos vueltos si están disponibles) */}
-                          <TableCell className="tabular-nums">
-                            {(() => {
-                              if (caja.efectivoFinal == null) return "—"
-                              let expected = Number(caja.efectivoFinal)
-                              return `S/ ${expected.toFixed(2)}`
-                            })()}
-                          </TableCell>
-                          <TableCell
-                            className={cn(
-                              "tabular-nums",
-                              diff != null && diff < 0
-                                ? "text-red-500"
-                                : diff != null && diff > 0
-                                ? "text-emerald-500"
-                                : ""
-                            )}
-                          >
-                            {diff != null ? "S/ " + diff.toFixed(2) : "—"}
-                          </TableCell>
-                          <TableCell className="tabular-nums">
-                            S/ {caja.totalYape.toFixed(2)}
-                          </TableCell>
-                          <TableCell>
-                            {caja.fechaCierre ? (
-                              <Badge className="bg-red-600">Cerrada</Badge>
-                            ) : (
-                              <Badge className="bg-emerald-600">Abierta</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="gap-1"
-                              onClick={() => cargarMovimientosCajaHist(caja)}
-                            >
-                              <Eye className="h-4 w-4" />
-                              Ver
-                            </Button>
+              <CardContent>
+                <div className="rounded-xl border bg-background/50 backdrop-blur overflow-x-auto shadow-inner">
+                  <Table className="min-w-[1080px]">
+                    <TableHeader className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm">
+                        <TableRow>
+                          <TableHead>Apertura</TableHead>
+                          <TableHead>Cierre</TableHead>
+                          <TableHead>Responsable</TableHead>
+                          <TableHead>Ef. Inicial</TableHead>
+                          <TableHead>Ef. Declarado</TableHead>
+                          <TableHead>Ef. Final Sistema</TableHead>
+                          <TableHead>Diferencia</TableHead>
+                          <TableHead>Yape</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Ver</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {histLoading && (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                            Cargando historial...
                           </TableCell>
                         </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+                      )}
+                      {!histLoading && filteredHistorial.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                            Sin registros.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {!histLoading && filteredHistorial.map(caja => {
+                        const diff = caja.diferencia
+                        return (
+                          <TableRow
+                            key={caja._key}
+                            className="hover:bg-muted/30 transition-colors"
+                          >
+                            <TableCell className="text-xs md:text-sm">
+                              {new Date(caja.fechaApertura).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-xs md:text-sm">
+                              {caja.fechaCierre ? (
+                                new Date(caja.fechaCierre).toLocaleString()
+                              ) : (
+                                <span className="text-amber-500 font-medium">
+                                  Abierta
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-xs md:text-sm">
+                              {caja.usuarioResponsable}
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                              S/ {caja.efectivoInicial.toFixed(2)}
+                            </TableCell>
+                            {/* Ef. Declarado (monto contado al cerrar) - si backend lo expone usa ese campo, si no muestra — */}
+                            <TableCell className="tabular-nums">
+                              {((caja as any).efectivoFinalDeclarado ?? (caja as any).efectivoContado) != null
+                                ? `S/ ${(Number((caja as any).efectivoFinalDeclarado ?? (caja as any).efectivoContado)).toFixed(2)}`
+                                : "—"}
+                            </TableCell>
+                            {/* Ef. Final: mostrar valor que el sistema debe tener (restamos vueltos si están disponibles) */}
+                            <TableCell className="tabular-nums">
+                              {(() => {
+                                if (caja.efectivoFinal == null) return "—"
+                                let expected = Number(caja.efectivoFinal)
+                                return `S/ ${expected.toFixed(2)}`
+                              })()}
+                            </TableCell>
+                            <TableCell
+                              className={cn(
+                                "tabular-nums",
+                                diff != null && diff < 0
+                                  ? "text-red-500"
+                                  : diff != null && diff > 0
+                                  ? "text-emerald-500"
+                                  : ""
+                              )}
+                            >
+                              {diff != null ? "S/ " + diff.toFixed(2) : "—"}
+                            </TableCell>
+                            <TableCell className="tabular-nums">
+                              S/ {caja.totalYape.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              {caja.fechaCierre ? (
+                                <Badge className="bg-red-600">Cerrada</Badge>
+                              ) : (
+                                <Badge className="bg-emerald-600">Abierta</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1"
+                                onClick={() => cargarMovimientosCajaHist(caja)}
+                              >
+                                <Eye className="h-4 w-4" />
+                                Ver
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
 
-              {histTotal > histPageSize && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
-                  <div className="text-xs text-muted-foreground">
-                    Página {histPage} de {totalHistPages}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={histPage === 1}
-                      onClick={() => setHistPage(1)}
-                    >
-                      «
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={histPage === 1}
-                      onClick={() => setHistPage(p => Math.max(1, p - 1))}
-                    >
-                      Prev
-                    </Button>
-                    <Input
-                      className="w-16 h-8 text-center"
-                      type="number"
-                      min={1}
-                      max={totalHistPages}
-                      value={histPage}
-                      onChange={e => {
-                        const v = Number(e.target.value)
-                        if (!Number.isNaN(v)) {
-                          setHistPage(Math.min(Math.max(1, v), totalHistPages))
+                {histTotal > histPageSize && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">
+                    <div className="text-xs text-muted-foreground">
+                      Página {histPage} de {totalHistPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={histPage === 1}
+                        onClick={() => setHistPage(1)}
+                      >
+                        «
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={histPage === 1}
+                        onClick={() => setHistPage(p => Math.max(1, p - 1))}
+                      >
+                        Prev
+                      </Button>
+                      <Input
+                        className="w-16 h-8 text-center"
+                        type="number"
+                        min={1}
+                        max={totalHistPages}
+                        value={histPage}
+                        onChange={e => {
+                          const v = Number(e.target.value)
+                          if (!Number.isNaN(v)) {
+                            setHistPage(Math.min(Math.max(1, v), totalHistPages))
+                          }
+                        }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={histPage === totalHistPages}
+                        onClick={() =>
+                          setHistPage(p => Math.min(totalHistPages, p + 1))
                         }
-                      }}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={histPage === totalHistPages}
-                      onClick={() =>
-                        setHistPage(p => Math.min(totalHistPages, p + 1))
-                      }
-                    >
-                      Next
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={histPage === totalHistPages}
-                      onClick={() => setHistPage(totalHistPages)}
-                    >
-                      »
-                    </Button>
+                      >
+                        Next
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={histPage === totalHistPages}
+                        onClick={() => setHistPage(totalHistPages)}
+                      >
+                        »
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </GlassPanel>
-        </TabsContent>
+                )}
+              </CardContent>
+            </GlassPanel>
+          </TabsContent>
+        )}
 
-        {/* RESUMEN */}
-        <TabsContent value="resumen" className="space-y-6">
-          <GlassPanel>
-            <CardHeader className="pb-4">
-              <CardTitle className="flex items-center gap-2">
-                <Gauge className="h-5 w-5 text-primary" />
-                Resumen Diario
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Consolidado de operaciones del día
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-8 md:grid-cols-2">
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm tracking-wide uppercase text-muted-foreground">
-                      Movimientos y efectivo
-                    </h3>
+        {/* RESUMEN (solo admin) */}
+        {isAdmin && (
+          <TabsContent value="resumen" className="space-y-6">
+            <GlassPanel>
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2">
+                  <Gauge className="h-5 w-5 text-primary" />
+                  Resumen Diario
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Consolidado de operaciones del día
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-8 md:grid-cols-2">
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm tracking-wide uppercase text-muted-foreground">
+                        Movimientos y efectivo
+                      </h3>
+                    </div>
+                    <MetricList>
+                      <MetricRow label="Efectivo inicial" value={resumen?.efectivoInicial} />
+                      <MetricRow
+                        label="Ingresos manuales"
+                        value={resumen?.ingresos}
+                        positive
+                      />
+                      <MetricRow
+                        label="Ventas en efectivo"
+                        value={resumen?.ventasEfectivo}
+                        positive
+                      />
+                      <MetricRow
+                        label="Egresos"
+                        value={resumen?.egresos}
+                        negative
+                      />
+                    </MetricList>
                   </div>
-                  <MetricList>
-                    <MetricRow label="Efectivo inicial" value={resumen?.efectivoInicial} />
-                    <MetricRow
-                      label="Ingresos manuales"
-                      value={resumen?.ingresos}
-                      positive
-                    />
-                    <MetricRow
-                      label="Ventas en efectivo"
-                      value={resumen?.ventasEfectivo}
-                      positive
-                    />
-                    <MetricRow
-                      label="Egresos"
-                      value={resumen?.egresos}
-                      negative
-                    />
-                  </MetricList>
-                </div>
 
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-sm tracking-wide uppercase text-muted-foreground">
-                      Ventas por método
-                    </h3>
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm tracking-wide uppercase text-muted-foreground">
+                        Ventas por método
+                      </h3>
+                    </div>
+                    <MetricList>
+                      <MetricRow
+                        label="Ventas efectivo"
+                        value={resumen?.ventasEfectivo}
+                        positive
+                      />
+                      <MetricRow
+                        label="Pagos Yape"
+                        value={resumen?.totalYape}
+                        accent="cyan"
+                      />
+                      <MetricRow
+                        label="Total ventas"
+                        value={resumen?.totalVentas}
+                        bold
+                      />
+                    </MetricList>
                   </div>
-                  <MetricList>
-                    <MetricRow
-                      label="Ventas efectivo"
-                      value={resumen?.ventasEfectivo}
-                      positive
-                    />
-                    <MetricRow
-                      label="Pagos Yape"
-                      value={resumen?.totalYape}
-                      accent="cyan"
-                    />
-                    <MetricRow
-                      label="Total ventas"
-                      value={resumen?.totalVentas}
-                      bold
-                    />
-                  </MetricList>
                 </div>
-              </div>
-            </CardContent>
-          </GlassPanel>
-        </TabsContent>
+              </CardContent>
+            </GlassPanel>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Dialogs */}
@@ -1419,124 +1469,127 @@ export default function CajaPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={dialogHistMovsOpen}
-        onOpenChange={o => {
-          setDialogHistMovsOpen(o)
-          if (!o) {
-            setCajaSeleccionada(null)
-            setMovimientosCajaSeleccionada(null)
-          }
-        }}
-      >
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>
-              Movimientos Caja #{cajaSeleccionada?.id ?? "—"}
-            </DialogTitle>
-            <DialogDescription>
-              {cajaSeleccionada
-                ? `Apertura: ${new Date(
-                    cajaSeleccionada.fechaApertura
-                  ).toLocaleString()}${
-                    cajaSeleccionada.fechaCierre
-                      ? " | Cierre: " +
-                        new Date(
-                          cajaSeleccionada.fechaCierre
-                        ).toLocaleString()
-                      : ""
+      {/* Dialog de movimientos (solo admin) */}
+      {isAdmin && (
+        <Dialog
+          open={dialogHistMovsOpen}
+          onOpenChange={o => {
+            setDialogHistMovsOpen(o)
+            if (!o) {
+              setCajaSeleccionada(null)
+              setMovimientosCajaSeleccionada(null)
+            }
+          }}
+        >
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>
+                Movimientos Caja #{cajaSeleccionada?.id ?? "—"}
+              </DialogTitle>
+              <DialogDescription>
+                {cajaSeleccionada
+                  ? `Apertura: ${new Date(
+                      cajaSeleccionada.fechaApertura
+                    ).toLocaleString()}${
+                      cajaSeleccionada.fechaCierre
+                        ? " | Cierre: " +
+                          new Date(
+                            cajaSeleccionada.fechaCierre
+                          ).toLocaleString()
+                        : ""
                   }`
-                : "Selecciona una caja del historial"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="rounded-lg border bg-background/60 backdrop-blur max-h-[55vh] overflow-auto">
-            <Table className="min-w-[720px]">
-              <TableHeader className="sticky top-0 bg-background/80 backdrop-blur-sm">
-                <TableRow>
-                  <TableHead>Fecha/Hora</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Descripción</TableHead>
-                  <TableHead>Monto</TableHead>
-                  <TableHead>Usuario</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingMovsCajaSeleccionada && (
+                  : "Selecciona una caja del historial"}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="rounded-lg border bg-background/60 backdrop-blur max-h-[55vh] overflow-auto">
+              <Table className="min-w-[720px]">
+                <TableHeader className="sticky top-0 bg-background/80 backdrop-blur-sm">
                   <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="text-center py-6 text-muted-foreground"
-                    >
-                      Cargando movimientos...
-                    </TableCell>
+                    <TableHead>Fecha/Hora</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead>Monto</TableHead>
+                    <TableHead>Usuario</TableHead>
                   </TableRow>
-                )}
-                {!loadingMovsCajaSeleccionada &&
-                  movimientosCajaSeleccionada == null && (
+                </TableHeader>
+                <TableBody>
+                  {loadingMovsCajaSeleccionada && (
                     <TableRow>
                       <TableCell
                         colSpan={5}
                         className="text-center py-6 text-muted-foreground"
                       >
-                        Selecciona una caja.
+                        Cargando movimientos...
                       </TableCell>
                     </TableRow>
                   )}
-                {!loadingMovsCajaSeleccionada &&
-                  movimientosCajaSeleccionada?.length === 0 && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-center py-6 text-muted-foreground"
-                      >
-                        Sin movimientos.
+                  {!loadingMovsCajaSeleccionada &&
+                    movimientosCajaSeleccionada == null && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-6 text-muted-foreground"
+                        >
+                          Selecciona una caja.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  {!loadingMovsCajaSeleccionada &&
+                    movimientosCajaSeleccionada?.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-6 text-muted-foreground"
+                        >
+                          Sin movimientos.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  {movimientosCajaSeleccionada?.map(m => (
+                    <TableRow key={m.id}>
+                      <TableCell className="text-xs md:text-sm">
+                        {m.fecha}
                       </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={cn(
+                            "gap-1",
+                            m.tipo.toLowerCase() === "ingreso"
+                              ? "bg-emerald-500"
+                              : "bg-red-500"
+                          )}
+                        >
+                          {m.tipo.toLowerCase() === "ingreso" ? (
+                            <ArrowUpIcon className="h-3 w-3" />
+                          ) : (
+                            <ArrowDownIcon className="h-3 w-3" />
+                          )}
+                          {m.tipo}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-pre-line break-words">
+                        {m.descripcion}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        S/ {m.monto.toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-xs">{m.usuario}</TableCell>
                     </TableRow>
-                  )}
-                {movimientosCajaSeleccionada?.map(m => (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-xs md:text-sm">
-                      {m.fecha}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        className={cn(
-                          "gap-1",
-                          m.tipo.toLowerCase() === "ingreso"
-                            ? "bg-emerald-500"
-                            : "bg-red-500"
-                        )}
-                      >
-                        {m.tipo.toLowerCase() === "ingreso" ? (
-                          <ArrowUpIcon className="h-3 w-3" />
-                        ) : (
-                          <ArrowDownIcon className="h-3 w-3" />
-                        )}
-                        {m.tipo}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="whitespace-pre-line break-words">
-                      {m.descripcion}
-                    </TableCell>
-                    <TableCell className="tabular-nums">
-                      S/ {m.monto.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-xs">{m.usuario}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDialogHistMovsOpen(false)}
-            >
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDialogHistMovsOpen(false)}
+              >
+                Cerrar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

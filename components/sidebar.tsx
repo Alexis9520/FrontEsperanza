@@ -69,7 +69,8 @@ const Icons = {
 const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: Icons.dashboard, adminOnly: true, order: -100 },
   { title: "Vender", href: "/dashboard/nueva", icon: Icons.nuevaVenta, order: 10 },
-  { title: "Historial ventas", href: "/dashboard/ventas", icon: Icons.historialVentas, order: 11 },
+  // Historial de ventas ahora solo visible para admin
+  { title: "Historial ventas", href: "/dashboard/ventas", icon: Icons.historialVentas, adminOnly: true, order: 11 },
   { title: "Caja", href: "/dashboard/caja", icon: Icons.caja, order: 12 },
   { title: "Productos", href: "/dashboard/productos", icon: Icons.productos, adminOnly: true, order: 20 },
   { title: "Stock", href: "/dashboard/stock", icon: Icons.stock, order: 21 },

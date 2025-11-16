@@ -183,6 +183,10 @@ export default function ProductosPage() {
   const [editLoteIndex, setEditLoteIndex] = useState<number | null>(null)
   const [loteEnEdicion, setLoteEnEdicion] = useState<StockLote | null>(null)
 
+  // Confirmación antes de eliminar producto
+  const [productoAEliminar, setProductoAEliminar] = useState<Producto | null>(null)
+  const [eliminando, setEliminando] = useState(false)
+
   // Modal lotes
   const [lotesModalProducto, setLotesModalProducto] = useState<Producto | null>(null)
 
@@ -1314,7 +1318,7 @@ export default function ProductosPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => eliminarProductoPorId(p.id)}
+                              onClick={() => setProductoAEliminar(p)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1648,6 +1652,49 @@ export default function ProductosPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG CONFIRMAR ELIMINACIÓN DE PRODUCTO */}
+      <Dialog
+        open={!!productoAEliminar}
+        onOpenChange={() => {
+          if (!productoAEliminar) return
+          setProductoAEliminar(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar producto</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro que deseas eliminar el producto <strong>{productoAEliminar?.nombre}</strong>? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setProductoAEliminar(null)}
+              disabled={eliminando}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!productoAEliminar) return
+                try {
+                  setEliminando(true)
+                  await eliminarProductoPorId(productoAEliminar.id)
+                } finally {
+                  setEliminando(false)
+                  setProductoAEliminar(null)
+                }
+              }}
+              disabled={eliminando}
+            >
+              {eliminando ? "Eliminando..." : "Eliminar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
