@@ -29,12 +29,18 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, toas
     ...(hasBody ? { "Content-Type": (options.headers as any)?.["Content-Type"] || "application/json" } : {})
   } as Record<string, string>;
 
-  const res = await fetch(url, { ...options, headers });
+  // Include credentials so session cookies (JSESSIONID) are sent for cross-origin setups
+  const res = await fetch(url, { ...options, headers, credentials: "include" });
 
   if (!res.ok) {
     let errorText = await res.text(); let backendMsg = "";
     try { const json = JSON.parse(errorText); backendMsg = json.message || errorText; } catch { backendMsg = errorText; }
     const lowerMsg = (backendMsg || "").toLowerCase();
+
+    // If server returns 403 with empty body, log a short warning to help debug auth/session issues
+    if (res.status === 403 && (!backendMsg || backendMsg.trim().length === 0)) {
+      console.warn("fetchWithAuth: 403 Forbidden from", url, "- response had empty body. Check token, session cookie or backend permissions.")
+    }
 
     if (res.status === 403 && lowerMsg.includes("cerrar tu caja")) {
       if (toastFn) toastFn({ title: "Atención", description: backendMsg, variant: "destructive" });

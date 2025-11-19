@@ -9,7 +9,7 @@
  * URL base del backend
  * Para cambiar el servidor backend, modifica solo esta constante
  */
-export const BASE_URL = "http://109.199.106.139:8080";
+export const BASE_URL = "http://localhost:8080";
 
 /**
  * Construye una URL completa de API a partir de un path relativo

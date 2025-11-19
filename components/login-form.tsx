@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { motion, Variants } from "framer-motion"
+// framer-motion removed for this page to improve performance (animations disabled)
 import { login } from "@/lib/auth"
 import { useToast } from "@/lib/use-toast"
 import { Pill, Eye, EyeOff, Loader2, Shield, Lock } from "lucide-react"
@@ -39,15 +39,7 @@ type FormValues = z.infer<typeof formSchema>
 const MAX_ATTEMPTS = 5
 const LOCK_SECONDS = 45
 
-/* --------------- ANIMACIONES ---------------- */
-const fadeIn: Variants = {
-  hidden: { opacity: 0, y: 28 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: 0.10 * i, duration: 0.55, ease: [0.22, 1, 0.36, 1] }
-  })
-}
+/* Animaciones deshabilitadas en este componente para mejorar rendimiento. */
 
 /* =============== COMPONENTE PRINCIPAL =============== */
 export default function LoginForm() {
@@ -140,7 +132,7 @@ export default function LoginForm() {
   const isLocked = lockCountdown !== null
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#130B2A] text-slate-100">
+    <div className="no-animations fixed inset-0 overflow-hidden bg-[#130B2A] text-slate-100">
       <BackgroundBlobs />
 
       {/* CONTENEDOR CENTRADO RESPONSIVO */}
@@ -150,13 +142,7 @@ export default function LoginForm() {
               En >=lg: grid 2 columnas (bienvenida izquierda / form derecha) */}
           <div className="flex w-full flex-col gap-10 md:gap-14 lg:grid lg:grid-cols-2 lg:items-center lg:gap-16 xl:gap-24">
             {/* IZQUIERDA (o arriba en móvil) */}
-            <motion.section
-              variants={fadeIn}
-              initial="hidden"
-              animate="visible"
-              custom={0}
-              className="relative flex flex-col items-start justify-center lg:items-start"
-            >
+            <section className="relative flex flex-col items-start justify-center lg:items-start">
               {/* Eliminado el swirl rectangular: nuevo fondo radial con máscara para evitar borde/shadow visible */}
               <AmbientWelcomeBackground />
 
@@ -174,16 +160,10 @@ export default function LoginForm() {
                   
                 </div>
               </div>
-            </motion.section>
+            </section>
 
             {/* DERECHA FORM */}
-            <motion.section
-              variants={fadeIn}
-              initial="hidden"
-              animate="visible"
-              custom={0.3}
-              className="relative flex w-full items-start justify-center lg:items-center"
-            >
+            <section className="relative flex w-full items-start justify-center lg:items-center">
               <div className="w-full max-w-sm md:max-w-md lg:max-w-sm">
                 <FormCard
                   form={form}
@@ -198,7 +178,7 @@ export default function LoginForm() {
                   failedAttempts={failedAttempts}
                 />
               </div>
-            </motion.section>
+            </section>
           </div>
         </div>
       </div>
@@ -240,33 +220,10 @@ function BackgroundBlobs() {
         }}
       />
 
-      {/* Floating micro-particles (subtle) */}
+      {/* Floating micro-particles removed animation for performance (static background) */}
       <div className="absolute inset-0 overflow-hidden">
-  <div className="absolute -left-10 -top-10 w-[140%] h-[140%] bg-[radial-gradient(circle,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:18px_18px] opacity-40 animate-[particlesMove_8s_linear_infinite]" />
+        <div className="absolute -left-10 -top-10 w-[140%] h-[140%] bg-[radial-gradient(circle,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:18px_18px] opacity-40" />
       </div>
-
-      <style jsx>{`
-        @keyframes bgShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes particlesMove {
-          0% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-          25% { transform: translateY(-12px) translateX(8px) rotate(6deg); }
-          50% { transform: translateY(6px) translateX(18px) rotate(12deg); }
-          75% { transform: translateY(-6px) translateX(6px) rotate(4deg); }
-          100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-        }
-        /* Apply the background shift animation to the overlay element */
-        .mix-blend-overlay[style] {
-          animation: bgShift 10s ease-in-out infinite;
-        }
-        .animate-[particlesMove_8s_linear_infinite] { animation: particlesMove 8s linear infinite; }
-        @media (prefers-reduced-motion: reduce) {
-          .mix-blend-overlay[style], .animate-[particlesMove_20s_linear_infinite] { animation: none !important; }
-        }
-      `}</style>
     </div>
   )
 }
@@ -277,35 +234,9 @@ function AmbientWelcomeBackground() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-visible">
       {/* Layered floating blobs animation (different style): multiple blobs drifting with slight scale/opacity changes */}
-  <div className="absolute -left-20 -top-10 h-[58vmax] w-[58vmax] rounded-full blur-[110px] opacity-70 bg-[radial-gradient(circle_at_20%_30%,rgba(99,102,241,0.38),transparent_60%)] animate-[floatA_8s_ease-in-out_infinite]" />
-  <div className="absolute -right-28 top-6 h-[48vmax] w-[48vmax] rounded-full blur-[90px] opacity-65 bg-[radial-gradient(circle_at_80%_70%,rgba(236,72,153,0.34),transparent_60%)] animate-[floatB_10s_ease-in-out_infinite]" />
-  <div className="absolute left-1/3 -bottom-12 h-[46vmax] w-[46vmax] rounded-full blur-[100px] opacity-60 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.32),transparent_60%)] animate-[floatC_9s_ease-in-out_infinite]" />
-
-      <style jsx>{`
-        @keyframes floatA {
-          0% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.72; }
-          25% { transform: translateY(-24px) translateX(18px) scale(1.03); opacity: 0.8; }
-          50% { transform: translateY(0px) translateX(36px) scale(1.02); opacity: 0.7; }
-          75% { transform: translateY(18px) translateX(18px) scale(1.01); opacity: 0.78; }
-          100% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.72; }
-        }
-        @keyframes floatB {
-          0% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.65; }
-          30% { transform: translateY(18px) translateX(-22px) scale(1.04); opacity: 0.72; }
-          60% { transform: translateY(-12px) translateX(-40px) scale(1.02); opacity: 0.6; }
-          100% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.65; }
-        }
-        @keyframes floatC {
-          0% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.62; }
-          20% { transform: translateY(-18px) translateX(12px) scale(1.02); opacity: 0.7; }
-          50% { transform: translateY(22px) translateX(-8px) scale(1.01); opacity: 0.6; }
-          80% { transform: translateY(-6px) translateX(-26px) scale(1.03); opacity: 0.68; }
-          100% { transform: translateY(0px) translateX(0px) scale(1); opacity: 0.62; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .animate-[floatA_8s_ease-in-out_infinite], .animate-[floatB_10s_ease-in-out_infinite], .animate-[floatC_9s_ease-in-out_infinite] { animation: none !important; }
-        }
-      `}</style>
+  <div className="absolute -left-20 -top-10 h-[58vmax] w-[58vmax] rounded-full blur-[110px] opacity-70 bg-[radial-gradient(circle_at_20%_30%,rgba(99,102,241,0.38),transparent_60%)]" />
+  <div className="absolute -right-28 top-6 h-[48vmax] w-[48vmax] rounded-full blur-[90px] opacity-65 bg-[radial-gradient(circle_at_80%_70%,rgba(236,72,153,0.34),transparent_60%)]" />
+  <div className="absolute left-1/3 -bottom-12 h-[46vmax] w-[46vmax] rounded-full blur-[100px] opacity-60 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.32),transparent_60%)]" />
     </div>
   )
 }
@@ -519,20 +450,12 @@ function SubmitArea({
       <Button
         type="submit"
         disabled={isLoading || isLocked || !form.formState.isValid}
-        className="group relative h-11 w-full overflow-hidden rounded-xl bg-[linear-gradient(95deg,#7E22CE_0%,#6366F1_30%,#0EA5E9_60%,#06B6D4_90%)] bg-[length:200%_200%] text-sm font-semibold tracking-wide text-white shadow-[0_8px_20px_-6px_rgba(109,40,217,0.55)] transition-all hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/40 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 animate-[gradientMove_11s_linear_infinite]"
+        className="group relative h-11 w-full overflow-hidden rounded-xl bg-[linear-gradient(95deg,#7E22CE_0%,#6366F1_30%,#0EA5E9_60%,#06B6D4_90%)] text-sm font-semibold tracking-wide text-white shadow-[0_8px_20px_-6px_rgba(109,40,217,0.55)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="relative flex items-center justify-center gap-2">
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isLoading && <Loader2 className="h-4 w-4" />}
           {isLocked ? `Bloqueado (${lockCountdown}s)` : isLoading ? "Verificando..." : "Entrar"}
         </span>
-        <span className="pointer-events-none absolute inset-0 translate-x-[-60%] skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-0 transition duration-700 group-hover:translate-x-[125%] group-hover:opacity-70" />
-        <style jsx>{`
-          @keyframes gradientMove {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-        `}</style>
       </Button>
       {failedAttempts > 0 && failedAttempts < MAX_ATTEMPTS && (
         <p className="text-center text-[11px] font-medium text-amber-300">
@@ -540,13 +463,9 @@ function SubmitArea({
         </p>
       )}
       {isLocked && (
-        <motion.div
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-lg border border-rose-400/60 bg-rose-500/15 px-3 py-2 text-center text-[11px] font-medium text-rose-200 shadow-[0_0_0_1px_rgba(244,63,94,0.35),0_0_14px_-2px_rgba(244,63,94,0.55)]"
-        >
+        <div className="rounded-lg border border-rose-400/60 bg-rose-500/15 px-3 py-2 text-center text-[11px] font-medium text-rose-200 shadow-[0_0_0_1px_rgba(244,63,94,0.35),0_0_14px_-2px_rgba(244,63,94,0.55)]">
           Bloqueo temporal. Reintenta en {lockCountdown}s.
-        </motion.div>
+        </div>
       )}
     </div>
   )

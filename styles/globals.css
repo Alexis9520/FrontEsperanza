@@ -145,4 +145,15 @@ body {
   color-scheme: light dark;
 }
 
+/* Disable non-color animations on pages that opt-in via `no-animations` class.
+   This keeps color transitions while removing transforms, keyframes and JS-driven animations. */
+.no-animations, .no-animations * {
+  animation: none !important;
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
+  transition-duration: 160ms !important;
+  transition-timing-function: ease-in-out !important;
+  scroll-behavior: auto !important;
+  will-change: auto !important;
+}
+
 
