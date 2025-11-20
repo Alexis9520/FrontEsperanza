@@ -210,40 +210,62 @@ export default function ProveedoresPage() {
     }
 
     setEnviandoPedido(true)
-    let errores = 0
+    try {
+      // Enviar todas las peticiones en paralelo y esperar que todas terminen.
+      const proveedorId = proveedorPedido?.id ?? null
 
-    // 3. Enviar peticiones (una por producto)
-    // Podríamos usar Promise.all, pero secuencial es más seguro para ver errores individuales si el backend es sensible
-    for (const [prodIdStr, lotes] of productosConLotes) {
-      const productoId = Number(prodIdStr)
-      
-      const payload: AddStockPayload = {
-        stockData: {
-          productoId,
-          lotes
-        },
-        fechaDePedido: fechaPedido
-      }
+      const requests = productosConLotes.map(([prodIdStr, lotes]) => {
+        const productoId = Number(prodIdStr)
+        // Buscar el producto para obtener codigoBarras
+        const prod = productosProveedor.find(p => p.id === productoId)
+        const codigoBarras = prod?.codigoBarras || null
 
-      try {
-        await fetchWithAuth(apiUrl("/api/pedidos/agregar-stock"), {
+        // Nuevo modelo solicitado por el backend
+        const payload = {
+          stockData: {
+            productoId,
+            codigoBarras,
+            lotes
+          },
+          fechaDePedido: fechaPedido,
+          proveedorId: proveedorId
+        }
+
+        return fetchWithAuth(apiUrl("/api/pedidos/agregar-stock"), {
           method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
+        }).then((res: any) => {
+          if (res && res.ok === false) {
+            throw new Error(`HTTP ${res.status}`)
+          }
+          return res
         })
-      } catch (error) {
-        console.error(`Error enviando stock para prod ${productoId}`, error)
-        errores++
+      })
+
+      const results = await Promise.allSettled(requests)
+
+      let errores = 0
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          errores++
+          console.error(`Error en petición ${i}:`, r.reason)
+        }
+      })
+
+      if (errores === 0) {
+        toast({ title: "Éxito", description: "Pedido registrado correctamente." })
+        setShowPedidoDialog(false)
+        // Nota: Si otra vista (ej. la tabla de Pedidos) depende de datos en el servidor,
+        // hay que refrescarla aquí (llamando su loader o recargando la página).
+      } else {
+        toast({ title: "Atención", description: `El pedido se procesó con ${errores} errores. Revisa la consola.`, variant: "destructive" })
       }
-    }
-
-    setEnviandoPedido(false)
-
-    if (errores === 0) {
-      toast({ title: "Éxito", description: "Pedido registrado correctamente." })
-      setShowPedidoDialog(false)
-      // Opcional: recargar inventario o proveedores si afectara algo visible
-    } else {
-      toast({ title: "Atención", description: `El pedido se procesó con ${errores} errores. Revisa la consola.`, variant: "destructive" })
+    } catch (err) {
+      console.error("Error enviando pedidos:", err)
+      toast({ title: "Error", description: "Ocurrió un error al enviar el pedido.", variant: "destructive" })
+    } finally {
+      setEnviandoPedido(false)
     }
   }
   /* ------------ CRUD NUEVO ------------- */
