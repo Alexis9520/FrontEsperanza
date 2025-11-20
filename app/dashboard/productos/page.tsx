@@ -26,7 +26,8 @@ import {
   Boxes,
   ShieldAlert,
   Activity,
-  AlertTriangle
+  AlertTriangle,
+  X
 } from "lucide-react"
 import clsx from "clsx"
 
@@ -88,7 +89,12 @@ type StockLote = {
   fechaVencimiento: string
   precioCompra: number
 }
-
+// Nuevo tipo basado en tu JSON
+type Proveedor = {
+  id: number
+  razonComercial: string
+  ruc: string
+}
 type Producto = {
   id: number
   codigoBarras: string
@@ -105,7 +111,10 @@ type Producto = {
   principioActivo?: string
   tipoMedicamento?: string
   presentacion?: string
-  proveedorId?: number | null
+  // El backend devuelve el objeto completo en GET
+  proveedores?: Proveedor[]
+  // Para el POST/PUT usamos este campo auxiliar en el frontend
+  proveedorIds?: number[]
   fechaCreacion?: string
   stocks?: StockLote[]
 }
@@ -148,7 +157,8 @@ export default function ProductosPage() {
   const [densityCompact, setDensityCompact] = useState(false)
   const [loading, setLoading] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
-
+  // Diccionario para mostrar nombres en los Badges de edición/creación
+  const [diccionarioProveedores, setDiccionarioProveedores] = useState<Record<number, string>>({})
   // Paginación
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -171,7 +181,7 @@ export default function ProductosPage() {
     principioActivo: "",
     tipoMedicamento: "GENÉRICO",
     presentacion: "",
-    proveedorId: null as number | null,
+    proveedorIds: [] as number[],
     stocks: [] as StockLote[]
   })
   const [nuevoLote, setNuevoLote] = useState<StockLote>({
@@ -193,10 +203,27 @@ export default function ProductosPage() {
   // Modal lotes
   const [lotesModalProducto, setLotesModalProducto] = useState<Producto | null>(null)
 
-  // Snapshot previo (para futuros deltas si quisieras reactivar)
-  const prevStatsRef = useRef<any>(null)
+  /* ------------ CARGA DATOS AUXILIARES ------------- */
+  const cargarDiccionarioProveedores = useCallback(async () => {
+    try {
+      // Carga lista completa para tener mapeo ID -> Nombre
+      const data = await fetchWithAuth(apiUrl("/proveedores"))
+      const lista = Array.isArray(data) ? data : (data.content || [])
 
-  /* ------------ CARGA ------------- */
+      const mapa: Record<number, string> = {}
+      lista.forEach((p: any) => {
+        mapa[p.id] = p.razonComercial
+      })
+      setDiccionarioProveedores(mapa)
+    } catch (err) {
+      console.error("No se pudieron cargar nombres de proveedores", err)
+    }
+  }, [])
+  useEffect(() => {
+    cargarDiccionarioProveedores()
+  }, [cargarDiccionarioProveedores])
+
+  /* ------------ CARGA PRODUCTOS ------------- */
   const cargarProductos = useCallback(async () => {
     try {
       setLoading(true)
@@ -231,7 +258,8 @@ export default function ProductosPage() {
 
   useEffect(() => {
     cargarProductos()
-  }, [cargarProductos])
+  }, [cargarProductos, refreshTick]) // Añadido refreshTick para recargar tras guardar
+
   /* ------------ MÉTRICAS (GLOBALES vs PAGINADAS) ------------- */
   // Nota: la API devuelve listados paginados. Para mostrar métricas globales
   // (total de productos, unidades, stocks críticos, lotes vencidos) debemos
@@ -254,9 +282,9 @@ export default function ProductosPage() {
     arr.forEach(p => {
       totalUnidades += p.cantidadGeneral || 0
       if (p.cantidadMinima !== undefined && p.cantidadGeneral <= (p.cantidadMinima ?? 0)) criticos++
-      ;(p.stocks || []).forEach(l => {
-        if (calcularDiasParaVencer(l.fechaVencimiento) < 0) vencidos++
-      })
+        ; (p.stocks || []).forEach(l => {
+          if (calcularDiasParaVencer(l.fechaVencimiento) < 0) vencidos++
+        })
     })
     return {
       productos: arr.length,
@@ -364,19 +392,19 @@ export default function ProductosPage() {
         l.codigoStock ||
         (nuevoProducto.codigo_barras
           ? generarCodigoLote(
-              {
-                id: 0,
-                codigoBarras: nuevoProducto.codigo_barras,
-                nombre: nuevoProducto.nombre,
-                concentracion: nuevoProducto.concentracion,
-                cantidadGeneral: 0,
-                precioVentaUnd: Number(nuevoProducto.precio_venta_und) || 0,
-                descuento: Number(nuevoProducto.descuento) || 0,
-                laboratorio: nuevoProducto.laboratorio,
-                categoria: nuevoProducto.categoria
-              } as Producto,
-              idx
-            )
+            {
+              id: 0,
+              codigoBarras: nuevoProducto.codigo_barras,
+              nombre: nuevoProducto.nombre,
+              concentracion: nuevoProducto.concentracion,
+              cantidadGeneral: 0,
+              precioVentaUnd: Number(nuevoProducto.precio_venta_und) || 0,
+              descuento: Number(nuevoProducto.descuento) || 0,
+              laboratorio: nuevoProducto.laboratorio,
+              categoria: nuevoProducto.categoria
+            } as Producto,
+            idx
+          )
           : `L${idx + 1}`),
       cantidadUnidades: Number(l.cantidadUnidades) || 0,
       fechaVencimiento: l.fechaVencimiento,
@@ -400,9 +428,10 @@ export default function ProductosPage() {
       principioActivo: nuevoProducto.principioActivo && nuevoProducto.principioActivo.trim() !== "" ? nuevoProducto.principioActivo : null,
       tipoMedicamento: nuevoProducto.tipoMedicamento || null,
       presentacion: nuevoProducto.presentacion && nuevoProducto.presentacion.trim() !== "" ? nuevoProducto.presentacion : null,
-      proveedorId: nuevoProducto.proveedorId || null,
+      proveedorIds: nuevoProducto.proveedorIds, // <--- CAMBIO: Enviar array
       stocks: stocks.length > 0 ? stocks : []
     }
+
     try {
       const data = await fetchWithAuth(apiUrl("/productos/nuevo"), {
         method: "POST",
@@ -428,7 +457,7 @@ export default function ProductosPage() {
         principioActivo: "",
         tipoMedicamento: "GENÉRICO",
         presentacion: "",
-        proveedorId: null,
+        proveedorIds: [], // <--- Resetear array
         stocks: []
       })
       setNuevoLote({
@@ -466,7 +495,7 @@ export default function ProductosPage() {
       principioActivo: p.principioActivo || "",
       tipoMedicamento: p.tipoMedicamento || "GENÉRICO",
       presentacion: p.presentacion || "",
-      proveedorId: p.proveedorId ?? null,
+      proveedorIds: p.proveedores?.map(prov => prov.id) || [], // <--- CAMBIO: Cargar array existente o vacío
       stocks: (p.stocks || []).map((l, idx) => ({
         codigoStock: l.codigoStock || generarCodigoLote(p, idx),
         cantidadUnidades: l.cantidadUnidades,
@@ -491,9 +520,9 @@ export default function ProductosPage() {
         ...(prev.stocks || []),
         {
           ...loteEnEdicion,
-            codigoStock:
-              loteEnEdicion.codigoStock ||
-              `L${(prev.stocks.length + 1).toString().padStart(2, "0")}`
+          codigoStock:
+            loteEnEdicion.codigoStock ||
+            `L${(prev.stocks.length + 1).toString().padStart(2, "0")}`
         }
       ]
     }))
@@ -584,7 +613,7 @@ export default function ProductosPage() {
       principioActivo: editandoProducto.principioActivo && editandoProducto.principioActivo.trim() !== "" ? editandoProducto.principioActivo : null,
       tipoMedicamento: editandoProducto.tipoMedicamento || null,
       presentacion: editandoProducto.presentacion && editandoProducto.presentacion.trim() !== "" ? editandoProducto.presentacion : null,
-      proveedorId: editandoProducto.proveedorId || null,
+      proveedorIds: editandoProducto.proveedorIds, // <--- CAMBIO: Enviar array en PUT
       stocks: stocks.length > 0 ? stocks : []
     }
 
@@ -687,8 +716,8 @@ export default function ProductosPage() {
       current <= min
         ? "bg-red-500"
         : current <= min * 2
-        ? "bg-amber-500"
-        : "bg-emerald-500"
+          ? "bg-amber-500"
+          : "bg-emerald-500"
 
     return (
       <div className="space-y-1 w-32">
@@ -719,8 +748,8 @@ export default function ProductosPage() {
       d < 0
         ? { label: "Vencido", cls: "text-red-600" }
         : d <= 30
-        ? { label: `${d} d`, cls: "text-amber-500" }
-        : { label: `> ${d} d`, cls: "text-muted-foreground" }
+          ? { label: `${d} d`, cls: "text-amber-500" }
+          : { label: `> ${d} d`, cls: "text-muted-foreground" }
 
     return (
       <div className="flex flex-col gap-0.5">
@@ -788,7 +817,7 @@ export default function ProductosPage() {
             />
             Refrescar
           </Button>
-            <DensityToggle
+          <DensityToggle
             compact={densityCompact}
             onChange={() => setDensityCompact(d => !d)}
           />
@@ -882,12 +911,45 @@ export default function ProductosPage() {
                     }
                   />
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Proveedor</Label>
+                    <Label className="text-xs font-medium">Proveedores</Label>
+                    <div className="flex flex-wrap gap-2 mb-1.5">
+                      {nuevoProducto.proveedorIds.map((id) => (
+                        <Badge key={id} variant="secondary" className="gap-1 pr-1 pl-2 h-6">
+                          {/* AQUÍ LA MAGIA: Buscamos el nombre o mostramos cargando/ID */}
+                          {diccionarioProveedores[id] || `Prov #${id}`}
+
+                          <div
+                            className="cursor-pointer rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors ml-1"
+                            onClick={() =>
+                              setNuevoProducto((p) => ({
+                                ...p,
+                                proveedorIds: p.proveedorIds.filter((pid) => pid !== id),
+                              }))
+                            }
+                          >
+                            <X className="h-3 w-3" />
+                          </div>
+                        </Badge>
+                      ))}
+                      {nuevoProducto.proveedorIds.length === 0 && (
+                        <span className="text-[10px] text-muted-foreground italic py-1">
+                          Selecciona proveedores...
+                        </span>
+                      )}
+                    </div>
+                    {/* Tu ComboBoxProveedor se mantiene igual, solo "empuja" IDs */}
                     <ComboBoxProveedor
-                      value={nuevoProducto.proveedorId}
-                      onChange={proveedorId =>
-                        setNuevoProducto(p => ({ ...p, proveedorId }))
-                      }
+                      value={null}
+                      onChange={(idSeleccionado) => {
+                        if (idSeleccionado && !nuevoProducto.proveedorIds.includes(idSeleccionado)) {
+                          // Si por alguna razón el diccionario no tiene este ID (recién creado), 
+                          // podrías recargar el diccionario, pero generalmente ya estará ahí.
+                          setNuevoProducto((p) => ({
+                            ...p,
+                            proveedorIds: [...p.proveedorIds, idSeleccionado],
+                          }))
+                        }
+                      }}
                     />
                   </div>
                   <Field
@@ -942,7 +1004,7 @@ export default function ProductosPage() {
                         }))
                       }
                     />
-                    
+
                   </div>
 
                   <div className="space-y-3 pt-2">
@@ -1087,30 +1149,30 @@ export default function ProductosPage() {
         <MetricCard
           icon={Boxes}
           label="Productos"
-            value={metricas.productos}
-            loading={globalMetricasLoading}
+          value={metricas.productos}
+          loading={globalMetricasLoading}
           accent="from-cyan-400/25 to-cyan-700/10"
         />
         <MetricCard
           icon={Activity}
           label="Unidades"
-            value={metricas.unidades}
-            loading={globalMetricasLoading}
+          value={metricas.unidades}
+          loading={globalMetricasLoading}
           accent="from-indigo-400/25 to-indigo-700/10"
         />
         <MetricCard
           icon={ShieldAlert}
           label="Stock crítico"
-            value={metricas.criticos}
-            loading={globalMetricasLoading}
+          value={metricas.criticos}
+          loading={globalMetricasLoading}
           accent="from-amber-400/30 to-amber-700/10"
           warn={metricas.criticos > 0}
         />
         <MetricCard
           icon={AlertTriangle}
           label="Lotes vencidos"
-            value={metricas.vencidos}
-            loading={globalMetricasLoading}
+          value={metricas.vencidos}
+          loading={globalMetricasLoading}
           accent="from-red-400/30 to-red-700/10"
           danger={metricas.vencidos > 0}
         />
@@ -1188,6 +1250,7 @@ export default function ProductosPage() {
                   <TableHead>Código</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead>Clasificación</TableHead>
+                  <TableHead>Proveedores</TableHead>
                   <TableHead>Presentación</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Blister</TableHead>
@@ -1259,6 +1322,25 @@ export default function ProductosPage() {
                             </div>
                           </div>
                         </TableCell>
+                        {/* AGREGAR ESTA CELDA NUEVA */}
+                        <TableCell className="max-w-[180px]">
+                          <div className="flex flex-wrap gap-1">
+                            {p.proveedores && p.proveedores.length > 0 ? (
+                              p.proveedores.map((prov) => (
+                                <Badge
+                                  key={prov.id}
+                                  variant="secondary"
+                                  className="px-1.5 h-5 text-[9px] rounded-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
+                                >
+                                  {prov.razonComercial}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic">Sin proveedor</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        {/* ----------------------- */}
                         <TableCell>
                           <TooltipProvider>
                             <Tooltip>
@@ -1485,12 +1567,12 @@ export default function ProductosPage() {
                                     value={
                                       p.stocks?.length
                                         ? Math.min(
-                                            ...p.stocks.map(l =>
-                                              calcularDiasParaVencer(
-                                                l.fechaVencimiento
-                                              )
+                                          ...p.stocks.map(l =>
+                                            calcularDiasParaVencer(
+                                              l.fechaVencimiento
                                             )
-                                          ) + " d"
+                                          )
+                                        ) + " d"
                                         : "—"
                                     }
                                   />
@@ -1543,7 +1625,7 @@ export default function ProductosPage() {
               <span>
                 Página {page} de {totalPages}
               </span>
-              
+
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -1652,8 +1734,8 @@ export default function ProductosPage() {
                                 dias < 0
                                   ? "text-red-600"
                                   : dias <= 30
-                                  ? "text-amber-500"
-                                  : "text-emerald-600",
+                                    ? "text-amber-500"
+                                    : "text-emerald-600",
                                 "tabular-nums text-xs font-medium"
                               )}
                             >
@@ -1819,15 +1901,42 @@ export default function ProductosPage() {
                     }
                   />
                   <div className="space-y-2">
-                    <Label className="text-xs font-medium">Proveedor</Label>
+                    <Label className="text-xs font-medium">Proveedores</Label>
+                    <div className="flex flex-wrap gap-2 mb-1.5">
+                      {(editandoProducto.proveedorIds || []).map((id: number) => (
+                        <Badge key={id} variant="secondary" className="gap-1 pr-1 pl-2 h-6">
+                          {/* Usamos el mismo diccionario */}
+                          {diccionarioProveedores[id] || `Prov #${id}`}
+
+                          <div
+                            className="cursor-pointer rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors ml-1"
+                            onClick={() =>
+                              setEditandoProducto((p: any) => ({
+                                ...p,
+                                proveedorIds: p.proveedorIds.filter((pid: number) => pid !== id),
+                              }))
+                            }
+                          >
+                            <X className="h-3 w-3" />
+                          </div>
+                        </Badge>
+                      ))}
+                      {editandoProducto.proveedorIds.length === 0 && (
+                        <span className="text-[10px] text-muted-foreground italic py-1">
+                          Selecciona proveedores...
+                        </span>
+                      )}
+                    </div>
                     <ComboBoxProveedor
-                      value={editandoProducto.proveedorId}
-                      onChange={proveedorId =>
-                        setEditandoProducto((p: any) => ({
-                          ...p,
-                          proveedorId
-                        }))
-                      }
+                      value={null}
+                      onChange={(idSeleccionado) => {
+                        if (idSeleccionado && !(editandoProducto.proveedorIds || []).includes(idSeleccionado)) {
+                          setEditandoProducto((p: any) => ({
+                            ...p,
+                            proveedorIds: [...(p.proveedorIds || []), idSeleccionado],
+                          }))
+                        }
+                      }}
                     />
                   </div>
                   <Field
@@ -1888,7 +1997,7 @@ export default function ProductosPage() {
                         }))
                       }
                     />
-                    
+
                   </div>
 
                   <div className="space-y-2 pt-2">
@@ -1928,11 +2037,11 @@ export default function ProductosPage() {
                         value={loteEnEdicion?.fechaVencimiento || ""}
                         onChange={e =>
                           setLoteEnEdicion(o => ({
-                                                      codigoStock: o?.codigoStock ?? "",
-                                                      cantidadUnidades: o?.cantidadUnidades ?? 0,
-                                                      fechaVencimiento: e.target.value,
-                                                      precioCompra: o?.precioCompra ?? 0
-                                                    }))
+                            codigoStock: o?.codigoStock ?? "",
+                            cantidadUnidades: o?.cantidadUnidades ?? 0,
+                            fechaVencimiento: e.target.value,
+                            precioCompra: o?.precioCompra ?? 0
+                          }))
                         }
                       />
                       <Input
@@ -1945,17 +2054,17 @@ export default function ProductosPage() {
                           setLoteEnEdicion(o =>
                             o
                               ? {
-                                  codigoStock: o.codigoStock ?? "",
-                                  cantidadUnidades: o.cantidadUnidades ?? 0,
-                                  fechaVencimiento: o.fechaVencimiento ?? "",
-                                  precioCompra: Number(e.target.value)
-                                }
+                                codigoStock: o.codigoStock ?? "",
+                                cantidadUnidades: o.cantidadUnidades ?? 0,
+                                fechaVencimiento: o.fechaVencimiento ?? "",
+                                precioCompra: Number(e.target.value)
+                              }
                               : {
-                                  codigoStock: "",
-                                  cantidadUnidades: 0,
-                                  fechaVencimiento: "",
-                                  precioCompra: Number(e.target.value)
-                                }
+                                codigoStock: "",
+                                cantidadUnidades: 0,
+                                fechaVencimiento: "",
+                                precioCompra: Number(e.target.value)
+                              }
                           )
                         }
                       />
@@ -2002,10 +2111,10 @@ export default function ProductosPage() {
                     <div className="rounded-lg border bg-background/50 backdrop-blur-sm max-h-44 overflow-auto">
                       {(!editandoProducto.stocks ||
                         editandoProducto.stocks.length === 0) && (
-                        <div className="text-xs p-4 text-muted-foreground">
-                          Sin lotes
-                        </div>
-                      )}
+                          <div className="text-xs p-4 text-muted-foreground">
+                            Sin lotes
+                          </div>
+                        )}
                       {editandoProducto.stocks &&
                         editandoProducto.stocks.length > 0 && (
                           <Table className="text-[11px]">
@@ -2248,8 +2357,8 @@ function MetricCard({
               danger
                 ? "text-red-400"
                 : warn
-                ? "text-amber-400"
-                : "text-cyan-300"
+                  ? "text-amber-400"
+                  : "text-cyan-300"
             )}
           />
         </div>
@@ -2260,8 +2369,8 @@ function MetricCard({
           danger
             ? "text-red-300"
             : warn
-            ? "text-amber-300"
-            : "text-slate-100"
+              ? "text-amber-300"
+              : "text-slate-100"
         )}
       >
         {loading ? (

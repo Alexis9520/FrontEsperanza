@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
 export type Column<T> = {
@@ -19,7 +19,7 @@ export function DataTable<T extends Record<string, any>>({
 }: {
   columns: Column<T>[]
   data: T[]
-  emptyMessage?: string
+  emptyMessage?: ReactNode
   dense?: boolean
 }) {
   return (

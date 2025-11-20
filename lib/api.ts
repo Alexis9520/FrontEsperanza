@@ -155,7 +155,35 @@ export type ProductDTO = {
   proveedorNombre: string | null;
   stocks: ProductStock[];
 }
+// Para el POST /api/pedidos/agregar-stock
+export type NewStockLot = {
+  codigoStock: string;
+  cantidadUnidades: number;
+  fechaVencimiento: string | null; // "YYYY-MM-DD"
+  precioCompra: number;
+}
 
+export type AddStockPayload = {
+  stockData: {
+    productoId: number;
+    lotes: NewStockLot[];
+  };
+  fechaDePedido: string; // "YYYY-MM-DD"
+}
+
+// Para el GET /api/pedidos/reporte
+export type PedidoReportDTO = {
+  codigoBarras: string;
+  producto: string;
+  concentracion: string | null;
+  presentacion: string | null;
+  codigoStock: string;
+  cantUnidades: number;
+  cantInicial: number;
+  precioCompra: number;
+  fvencimiento: string | null;
+  fcreacion: string;
+}
 /* Utils */
 function toQuery(params?: Record<string, any>) {
   if (!params) return ""; const search = new URLSearchParams();
@@ -217,6 +245,32 @@ export function getLotesReport({ fechaInicio, fechaFin }: { fechaInicio: string;
 export function getProducts(params: { page?: number; size?: number; search?: string; categoria?: string; laboratorio?: string; tipoMedicamento?: string } = {}) {
   const { page = 0, size = 10, ...rest } = params;
   return fetchWithAuth(apiUrl("/productos") + toQuery({ page, size, ...rest })) as Promise<PageResponse<ProductDTO>>;
+}
+/* Pedidos y Gestión de Stock con Proveedores */
+
+export function addStock(payload: AddStockPayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl("/api/pedidos/agregar-stock"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, toastFn);
+}
+
+ //* GET /api/pedidos/reporte
+ 
+export function getPedidoReport(params: { proveedorId: number; fechaPedido: string }) {
+  // Mapeamos los nombres de parámetros de JS a los que espera tu Backend (snake_case / especificos)
+  const queryParams = {
+    ID_proveedor: params.proveedorId,
+    fecha_de_pedido: params.fechaPedido
+  };
+  return fetchWithAuth(apiUrl("/api/pedidos/reporte") + toQuery(queryParams)) as Promise<PedidoReportDTO[]>;
+}
+
+/**
+ * GET /productos/proveedor/{id}
+ */
+export function getProductsByProvider(proveedorId: number) {
+  return fetchWithAuth(apiUrl(`/productos/proveedor/${proveedorId}`)) as Promise<ProductDTO[]>;
 }
 
 /* Ventas / Boletas (accesible a trabajador + admin) */

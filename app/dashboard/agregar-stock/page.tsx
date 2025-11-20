@@ -317,7 +317,18 @@ export default function AgregarStockPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-cyan-400" />
-              Agregar Stock
+              <span className="flex items-center gap-2">
+                Agregar Stock
+                {/* Indicador rojo si faltan campos obligatorios */}
+                {(
+                  !nuevoStock.cantidadUnidades || !nuevoStock.fechaVencimiento || !nuevoStock.precioCompra
+                ) && (
+                  <span className="inline-flex items-center">
+                    <span className="h-2 w-2 rounded-full bg-red-500 mr-1" aria-hidden="true" />
+                    <span className="sr-only">Faltan campos obligatorios</span>
+                  </span>
+                )}
+              </span>
             </DialogTitle>
             <DialogDescription>
               {productoSeleccionado && (

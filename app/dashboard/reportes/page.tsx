@@ -1,7 +1,8 @@
 "use client"
-
+import autoTable from "jspdf-autotable"
 import { useEffect, useMemo, useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input" 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -32,6 +33,8 @@ import {
   Percent,
   Ticket,
   Package,
+  Truck,
+  Search,
 } from "lucide-react"
 import { DateRangePicker } from "@/components/reportes/DateRangePicker"
 import { StatCard } from "@/components/reportes/StatCard"
@@ -47,8 +50,25 @@ import {
   getCajaSummary,
   exportInventoryProfessional,
   type SalesSummary, type SalesByDay, type TopProduct, type PaymentMix,
+  PedidoReportDTO,
+  fetchWithAuth,
+  getPedidoReport,
 } from "@/lib/api"
-
+import { apiUrl } from "@/lib/config"
+import { Label } from "@radix-ui/react-label"
+import jsPDF from "jspdf"
+type Proveedor = {
+  id: number
+  ruc: string
+  razonComercial: string
+  numero1: string
+  numero2?: string
+  correo: string
+  direccion: string
+  fechaCreacion?: string
+  fechaActualizacion?: string
+  activo: boolean
+}
 const fmtMoney = (n?: number | null) =>
   typeof n === "number" ? n.toLocaleString("es-PE", { style: "currency", currency: "PEN", maximumFractionDigits: 2 }) : "—"
 
@@ -244,19 +264,26 @@ function ExplainerModal({
 
 /* ---------- Página Reportes ---------- */
 export default function ReportesPage() {
-  const [from, setFrom] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 6); d.setHours(0,0,0,0); return d })
-  const [to, setTo] = useState<Date>(() => { const d = new Date(); d.setHours(23,59,59,999); return d })
-  const [tab, setTab] = useState("resumen")
+  /* Estados Generales */
+  const [from, setFrom] = useState<Date>(() => { const d = new Date(); d.setDate(d.getDate() - 6); d.setHours(0, 0, 0, 0); return d })
+  const [to, setTo] = useState<Date>(() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d })
+  const [tab, setTab] = useState("inventario")
+  const [loading, setLoading] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
 
+  /* Estados Dashboard existente */
   const [summary, setSummary] = useState<SalesSummary | null>(null)
   const [salesByDay, setSalesByDay] = useState<SalesByDay[]>([])
   const [topProducts, setTopProducts] = useState<TopProduct[]>([])
   const [payMix, setPayMix] = useState<PaymentMix[]>([])
   const [caja, setCaja] = useState<any | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  const [helpOpen, setHelpOpen] = useState(false)
-  const [exportingInventory, setExportingInventory] = useState(false)
+  /* Estados NUEVOS para PEDIDOS */
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [selectedProvider, setSelectedProvider] = useState<string>("") // ID como string para el select
+  const [fechaPedido, setFechaPedido] = useState<string>(new Date().toISOString().split('T')[0]) // Hoy YYYY-MM-DD
+  const [pedidosData, setPedidosData] = useState<PedidoReportDTO[]>([])
+  const [loadingPedidos, setLoadingPedidos] = useState(false)
 
   // Valores de caja (acepta DTO desagregado o antiguo)
   const ingresosVentas = toNumber(caja?.ingresosVentas ?? caja?.ingresos ?? caja?.ventas ?? 0)
@@ -290,13 +317,7 @@ export default function ReportesPage() {
         setSalesByDay(byDay.status === "fulfilled" ? byDay.value : [])
         setTopProducts(tprod.status === "fulfilled" ? tprod.value : [])
         setPayMix(mix.status === "fulfilled" ? mix.value : [])
-        if (cash.status === "fulfilled") {
-          console.debug("getCajaSummary response:", cash.value)
-          setCaja(cash.value)
-        } else {
-          console.warn("getCajaSummary failed:", cash)
-          setCaja(null)
-        }
+        setCaja(cash.status === "fulfilled" ? cash.value : null)
       } finally {
         if (mounted) setLoading(false)
       }
@@ -304,6 +325,49 @@ export default function ReportesPage() {
     load()
     return () => { mounted = false }
   }, [from, to])
+  /* 2. Carga de Proveedores (Solo una vez) */
+  useEffect(() => {
+    const fetchProveedores = async () => {
+      try {
+        const data = await fetchWithAuth(apiUrl("/proveedores"))
+        if (Array.isArray(data)) {
+          setProveedores(data)
+        }
+      } catch (e) {
+        console.error("Error cargando proveedores", e)
+      }
+    }
+    fetchProveedores()
+  }, [])
+
+  /* 3. Carga de Reporte de Pedidos (Reactivo a fecha o proveedor) */
+  useEffect(() => {
+    // Si la pestaña no es pedidos, no cargar para ahorrar recursos (opcional)
+    if (tab !== "pedidos") return
+
+    const fetchPedidos = async () => {
+      setLoadingPedidos(true)
+      try {
+        // Si no hay proveedor seleccionado, pasamos 0 o manejamos según backend.
+        // Asumimos que backend maneja proveedorId=0 como "todos" o "sin filtro de proveedor"
+        // si el endpoint lo permite, sino traerá array vacío.
+        const pId = selectedProvider ? parseInt(selectedProvider) : 0
+        
+        const data = await getPedidoReport({
+            proveedorId: pId,
+            fechaPedido: fechaPedido
+        })
+        setPedidosData(Array.isArray(data) ? data : [])
+      } catch (e) {
+        console.error("Error cargando reporte de pedidos", e)
+        setPedidosData([])
+      } finally {
+        setLoadingPedidos(false)
+      }
+    }
+    fetchPedidos()
+  }, [tab, selectedProvider, fechaPedido])
+
 
   const salesByDayCols = useMemo<Column<SalesByDay>[]>(() => [
     { key: "fecha", header: "Fecha" },
@@ -320,6 +384,172 @@ export default function ReportesPage() {
     { key: "unidades", header: "Unidades", align: "right" },
     { key: "ventas", header: "Ventas", align: "right", render: (r) => fmtMoney(r.ventas) },
   ], [])
+  // Columnas para la nueva tabla PEDIDOS
+  const pedidosCols = useMemo<Column<PedidoReportDTO>[]>(() => [
+    { key: "codigoBarras", header: "Cód. Barras" },
+    { key: "producto", header: "Producto", grow: true, render: (r) => (
+        <div>
+            <div className="font-medium">{r.producto}</div>
+            <div className="text-xs text-muted-foreground">{r.concentracion} {r.presentacion}</div>
+        </div>
+    )},
+    { key: "codigoStock", header: "Lote (Stock)", fontMono: true },
+    { key: "cantUnidades", header: "Cant. Actual", align: "right" },
+    { key: "cantInicial", header: "Cant. Inicial", align: "right", className: "text-muted-foreground" },
+    { key: "precioCompra", header: "P. Compra", align: "right", render: (r) => fmtMoney(r.precioCompra) },
+    { key: "fvencimiento", header: "Vencimiento", className: "whitespace-nowrap" },
+    { key: "fcreacion", header: "Fecha Ingreso", className: "text-xs text-muted-foreground whitespace-nowrap", render: (r) => r.fcreacion ? new Date(r.fcreacion).toLocaleString() : "-" },
+  ], [])
+  /* =========================================================
+     FUNCIÓN EXPORTAR PDF (Formato FORM-004)
+  ========================================================= */
+  const generarPDFPedido = () => {
+    const doc = new jsPDF({ orientation: "landscape", format: "a4" })
+
+    // 1. Configuración de fuentes y datos generales
+    const fontSizeTitle = 14
+    const fontSizeSub = 10
+    const fontSizeText = 9
+    
+    // Encontrar datos del proveedor seleccionado para el encabezado
+    const provObj = proveedores.find(p => p.id.toString() === selectedProvider)
+    const textoProveedor = provObj 
+      ? `${provObj.razonComercial} ${provObj.ruc ? `- RUC: ${provObj.ruc}` : ""}` 
+      : "_____________________________________" // Línea vacía si no hay proveedor
+
+    // Formatear fecha (YYYY-MM-DD a DD/MM/YYYY)
+    const [anio, mes, dia] = fechaPedido.split("-")
+    const fechaFormateada = `${dia}/${mes}/${anio}`
+
+    // 2. ENCABEZADO (Replicando la imagen)
+    // Texto superior pequeño
+    doc.setFontSize(8)
+    doc.text("FORM-004", 15, 15)
+    doc.text("BOTICA NUEVA ESPERANZA", 148, 15, { align: "center" }) // Ajusta el nombre de tu botica aquí si es dinámico
+
+    // Título Principal
+    doc.setFontSize(fontSizeTitle)
+    doc.setFont("helvetica", "bold")
+    doc.text("FORMATO DE RECEPCIÓN DE PRODUCTOS FARMACÉUTICOS Y DISPOSITIVOS MÉDICOS", 148, 25, { align: "center" })
+
+    // Datos del encabezado (Líneas de inputs)
+    doc.setFontSize(fontSizeSub)
+    doc.setFont("helvetica", "normal")
+    
+    let startY = 35
+    // Fecha
+    doc.text(`Fecha De Recepción:  ${fechaFormateada}`, 15, startY)
+    // Proveedor
+    doc.text(`Proveedor:  ${textoProveedor}`, 100, startY)
+    
+    startY += 8
+    // Documento Referencia y Factura (Vacíos para llenar manual como en la foto)
+    doc.text("Documento De Referencia: ______________________________", 15, startY)
+    doc.text("Fact. / GR N°: ___________________", 180, startY)
+
+    // 3. TABLA
+    // Columnas exactas de la imagen
+    const tableColumn = [
+      "N°",
+      "DESCRIPCIÓN DEL PRODUCTO",
+      "CONCENTRACIÓN / FORMA",
+      "PRESENTACIÓN",
+      "LOTE / SERIE",
+      "VENCIMI\nENTO",
+      "REG SAN /\nNSOC",
+      "CANT.\nSOLICIT.",
+      "CANT.\nRECIBIDA",
+      "COND.\nALMAC.",
+      "EMPAQUE\nMEDIATO",
+      "EMPAQUE\nINMED.",
+      "TIPO\nENVASE",
+      "ESTADO\nENVASE"
+    ]
+
+    // Mapeo de datos (Lo que pediste + vacíos)
+    const tableRows = pedidosData.map((item, index) => [
+      index + 1,
+      item.producto || "",                      // Descripción
+      item.concentracion || "",                 // Concentración
+      item.presentacion || "",                  // Presentación
+      item.codigoStock || "",                   // Lote/Serie
+      item.fvencimiento || "",                                       // Vencimiento (Vacío pedido)
+      "",                                       // Reg San (Vacío pedido)
+      item.cantInicial || "",                   // Cantidad Solicitada
+      "",                                       // Cantidad Recibida (Vacío)
+      "",                                       // Condiciones Almacen (Vacío)
+      "",                                       // Empaque Mediato (Vacío)
+      "",                                       // Empaque Inmediato (Vacío)
+      "",                                       // Tipo Envase (Vacío)
+      ""                                        // Estado Envase (Vacío)
+    ])
+
+    // Generar tabla
+    autoTable(doc, {
+      startY: startY + 5,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid', // Crea las líneas de la cuadrícula como en la foto
+      headStyles: {
+        fillColor: [220, 220, 220], // Gris claro para encabezado
+        textColor: [0, 0, 0],
+        fontSize: 7,
+        halign: 'center',
+        valign: 'middle',
+        lineWidth: 0.1,
+        lineColor: [0, 0, 0]
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [0, 0, 0],
+        lineWidth: 0.1,
+        lineColor: [0, 0, 0],
+        valign: 'middle' // Centrado verticalmente para dejar espacio si escriben
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' }, // N°
+        1: { cellWidth: 45 }, // Descripcion (más ancha)
+        7: { halign: 'center' }, // Cant Solicitada
+        // El resto se ajusta automático
+      },
+      styles: {
+        cellPadding: 2, // Espacio interno para que se vea limpio
+        minCellHeight: 8 // Altura mínima para permitir escritura manual si imprimen
+      },
+      margin: { left: 15, right: 15 }
+    })
+
+    // 4. PIE DE PÁGINA (Leyenda y Firmas)
+    // Obtener la posición final de la tabla
+    const finalY = (doc as any).lastAutoTable.finalY + 10
+
+    doc.setFontSize(7)
+    doc.text("LEYENDA: Empaque inmediato / empaque mediato / estado del envase: Óptimo / Deficiente", 15, finalY)
+    doc.text("Tipos de envase: Vidrio / Plástico / Aluminio / Blíster Termosellado / Otros.", 160, finalY)
+
+    const conclsY = finalY + 10
+    doc.setFontSize(9)
+    doc.text("Conclusiones:", 15, conclsY)
+    doc.text("Aprobado   (   )", 60, conclsY)
+    doc.text("Rechazado   (   )", 160, conclsY)
+
+    const obsY = conclsY + 10
+    doc.text("Observación: _____________________________________________________________________________________________________________", 15, obsY)
+
+    // Firmas
+    const firmasY = obsY + 30
+    doc.line(30, firmasY, 90, firmasY) // Línea 1
+    doc.text("RESPONSABLE DE RECEPCIÓN", 60, firmasY + 5, { align: "center" })
+
+    doc.line(110, firmasY, 170, firmasY) // Línea 2
+    doc.text("V°B° D.T. QUÍMICO FARMACÉUTICO", 140, firmasY + 5, { align: "center" })
+
+    doc.line(200, firmasY, 260, firmasY) // Línea 3
+    doc.text("REPRESENTANTE LEGAL DEL EEFF", 230, firmasY + 5, { align: "center" })
+
+    // Guardar
+    doc.save(`Recepcion_${fechaPedido}_${provObj?.razonComercial || "General"}.pdf`)
+  }
 
   return (
     <div className="flex flex-col gap-6 py-6 max-w-7xl mx-auto relative">
@@ -331,22 +561,27 @@ export default function ReportesPage() {
           </h1>
           <p className="text-muted-foreground mt-1">Explora, filtra y descarga información clave de tu farmacia.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
-          <Button variant="secondary" className="gap-2" disabled>
-            <Calendar className="w-4 h-4" />
-            Filtros
-          </Button>
-        </div>
+
+        {/* Filtro global de fechas (solo visible en tabs que no son pedidos, o podrias ocultarlo si estás en pedidos) */}
+        {tab !== "pedidos" && (
+            <div className="flex items-center gap-2">
+            <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
+            <Button variant="secondary" className="gap-2" disabled>
+                <Calendar className="w-4 h-4" />
+                Filtros
+            </Button>
+            </div>
+        )}
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <div className="flex items-center justify-between gap-3">
           <TabsList className="bg-muted/50 backdrop-blur flex-wrap p-1 rounded-lg gap-2">
-            <TabsTrigger value="resumen">Resumen</TabsTrigger>
-            <TabsTrigger value="ventas">Ventas</TabsTrigger>
+            {/*<TabsTrigger value="resumen">Resumen</TabsTrigger>*/}
+            {/*<TabsTrigger value="ventas">Ventas</TabsTrigger>*/}
+            <TabsTrigger value="pedidos" className="gap-2"><Truck className="w-4 h-4"/> Pedidos</TabsTrigger>
             <TabsTrigger value="inventario">Inventario</TabsTrigger>
-            <TabsTrigger value="lotes">Lotes</TabsTrigger>
+            {/*<TabsTrigger value="lotes">Lotes (Global)</TabsTrigger>*/}
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
           </TabsList>
 
@@ -449,7 +684,7 @@ export default function ReportesPage() {
             </Card>
           </div>
         </TabsContent>
-
+{/* --- TAB VENTAS --- */}
         <TabsContent value="ventas">
           <Card className="mt-6">
             <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -478,7 +713,85 @@ export default function ReportesPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
+        {/* --- TAB PEDIDOS (NUEVO) --- */}
+        <TabsContent value="pedidos">
+          <Card className="mt-6 border-emerald-500/20">
+            <CardHeader>
+                <div className="flex flex-col md:flex-row justify-between gap-4">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <Truck className="w-5 h-5 text-emerald-400" />
+                            Reporte de Pedidos
+                        </CardTitle>
+                        <CardDescription>
+                            Consulta los productos ingresados filtrando por proveedor y fecha de pedido.
+                        </CardDescription>
+                    </div>
+                    
+                    {/* Filtros y Botón Exportar */}
+                    <div className="flex flex-col xl:flex-row gap-3 items-end">
+                        <div className="flex flex-col gap-1.5 w-full sm:w-40">
+                            <Label htmlFor="fechaPedido" className="text-xs text-muted-foreground">Fecha de Pedido</Label>
+                            <Input 
+                                id="fechaPedido"
+                                type="date" 
+                                value={fechaPedido} 
+                                onChange={(e) => setFechaPedido(e.target.value)}
+                                className="h-9 bg-background/50"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1.5 w-full sm:w-64">
+                            <Label htmlFor="proveedorSelect" className="text-xs text-muted-foreground">Proveedor</Label>
+                            <select
+                                id="proveedorSelect"
+                                className="flex h-9 w-full rounded-md border border-input bg-background/50 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                value={selectedProvider}
+                                onChange={(e) => setSelectedProvider(e.target.value)}
+                            >
+                                <option value="">-- Todos / Sin filtro --</option>
+                                {proveedores.map((prov) => (
+                                    <option key={prov.id} value={prov.id}>
+                                        {prov.razonComercial} ({prov.ruc})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        {/* BOTÓN PDF */}
+                        <Button 
+                            variant="outline" 
+                            className="gap-2 border-red-200 hover:bg-red-50 text-red-700 hover:text-red-800"
+                            onClick={generarPDFPedido}
+                            disabled={pedidosData.length === 0} // Deshabilitar si no hay datos
+                        >
+                            <FileText className="w-4 h-4" />
+                            Exportar PDF
+                        </Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {loadingPedidos ? (
+                    <div className="flex flex-col items-center justify-center py-10 space-y-3 text-muted-foreground">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
+                        <p className="text-sm">Cargando reporte de pedidos...</p>
+                    </div>
+                ) : (
+                    <DataTable 
+                        columns={pedidosCols} 
+                        data={pedidosData} 
+                        emptyMessage={
+                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                                <Search className="w-8 h-8 opacity-20" />
+                                <p>No se encontraron registros para la fecha {fechaPedido} {selectedProvider ? "y el proveedor seleccionado" : ""}.</p>
+                            </div>
+                        }
+                    />
+                )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        {/* --- TAB INVENTARIO --- */}
         <TabsContent value="inventario">
           <Card className="mt-6">
             <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -495,7 +808,7 @@ export default function ReportesPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
+                {/* --- TAB LOTES --- */}
         <TabsContent value="lotes">
           <Card className="mt-6">
             <CardHeader>
@@ -510,7 +823,7 @@ export default function ReportesPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
+                {/* --- TAB CLIENTES --- */}
         <TabsContent value="clientes">
           <Card className="mt-6">
             <CardHeader>
