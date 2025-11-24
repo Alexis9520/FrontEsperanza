@@ -2,6 +2,24 @@ import { apiUrl } from "./config"
 
 type ToastFn = (opts: { title: string; description: string; variant?: "destructive" | "default" }) => void;
 
+type ApiError = Error & {
+  status?: number
+  statusText?: string | null
+  backendMessage?: string
+  url?: string
+  rawBody?: string
+}
+
+function createApiError(message: string, status: number, meta: Partial<ApiError> = {}) {
+  const error = new Error(message || `Error ${status}`) as ApiError
+  error.status = status
+  if (meta.statusText !== undefined) error.statusText = meta.statusText
+  if (meta.backendMessage !== undefined) error.backendMessage = meta.backendMessage
+  if (meta.url !== undefined) error.url = meta.url
+  if (meta.rawBody !== undefined) error.rawBody = meta.rawBody
+  return error
+}
+
 // Detecta rutas solo-ADMIN
 function isAdminOnlyPath(url: string): boolean {
   try {
@@ -51,17 +69,17 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}, toas
       if (toastFn) toastFn({ title: "Acceso fuera de turno", description: backendMsg, variant: "destructive" });
       localStorage.removeItem("token"); localStorage.removeItem("usuario");
       if (typeof window !== "undefined") window.location.href = "/login";
-      throw new Error(backendMsg);
+      throw createApiError(backendMsg || "Acceso denegado", 403, { statusText: res.statusText, backendMessage: backendMsg, url, rawBody: errorText });
     }
     if (res.status === 401) {
       localStorage.removeItem("token"); localStorage.removeItem("usuario");
       if (toastFn) toastFn({ title: "Sesión expirada", description: "Por seguridad, inicia sesión nuevamente.", variant: "destructive" });
       if (typeof window !== "undefined") window.location.href = "/login";
-      throw new Error("Sesión expirada");
+      throw createApiError("Sesión expirada", 401, { statusText: res.statusText, backendMessage: backendMsg, url, rawBody: errorText });
     }
 
     if (toastFn) toastFn({ title: "Error", description: backendMsg || `Error en la petición: ${res.status}`, variant: "destructive" });
-    throw new Error(backendMsg || `Error en la petición: ${res.status}`);
+    throw createApiError(backendMsg || `Error en la petición: ${res.status}`, res.status, { statusText: res.statusText, backendMessage: backendMsg, url, rawBody: errorText });
   }
 
   const contentType = res.headers.get("content-type") || "";

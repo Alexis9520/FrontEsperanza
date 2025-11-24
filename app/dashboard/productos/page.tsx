@@ -139,6 +139,99 @@ function obtenerEstadoLote(fechaVencimiento: string) {
   return { estado: "vigente", color: "outline", texto: "Vigente", dias }
 }
 
+type FriendlyErrorInfo = { title: string; description: string }
+
+function extractStatusFromError(error: any): number | null {
+  if (!error) return null
+  const candidate = (error as any).status ?? error?.statusCode ?? error?.response?.status ?? error?.cause?.status ?? null
+  const value = typeof candidate === "string" ? Number(candidate) : candidate
+  return typeof value === "number" && !Number.isNaN(value) ? value : null
+}
+
+function interpretStockDeletionError(error: any): FriendlyErrorInfo {
+  const status = extractStatusFromError(error)
+  if (status === 403) {
+    return {
+      title: "Lote con pedido vinculado",
+      description: "No puedes eliminar este lote porque proviene de un pedido activo. Elimina o actualiza el pedido primero."
+    }
+  }
+  if (status === 409) {
+    return {
+      title: "Lote con ventas registradas",
+      description: "El lote ya tiene ventas asociadas, por lo que no puede eliminarse. Ajusta el stock desde un movimiento manual."
+    }
+  }
+  if (status === 404) {
+    return {
+      title: "Lote no encontrado",
+      description: "El lote ya fue eliminado o no existe. Actualiza para ver el estado más reciente."
+    }
+  }
+  return {
+    title: "No se pudo eliminar el lote",
+    description: "Hubo un problema al eliminar el lote. Intenta nuevamente o contacta al administrador si persiste."
+  }
+}
+
+function interpretProductUpdateError(error: any): FriendlyErrorInfo {
+  const status = extractStatusFromError(error)
+  if (status === 400) {
+    return {
+      title: "Revisa los datos",
+      description: "El servidor rechazó la solicitud porque hay datos incompletos o con un formato inválido."
+    }
+  }
+  if (status === 403) {
+    return {
+      title: "Permiso denegado",
+      description: "Tu usuario no tiene permisos para editar este producto. Solicita acceso al administrador."
+    }
+  }
+  if (status === 404) {
+    return {
+      title: "Producto no encontrado",
+      description: "El producto ya no existe o fue eliminado por otro usuario."
+    }
+  }
+  if (status === 409) {
+    return {
+      title: "Registro duplicado",
+      description: "Ya existe un producto con los mismos datos (nombre o código de barras). Ajusta la información y vuelve a intentar."
+    }
+  }
+  return {
+    title: "No se pudo guardar",
+    description: "Ocurrió un problema inesperado al guardar el producto. Intenta nuevamente en unos segundos."
+  }
+}
+
+function interpretProductDeletionError(error: any): FriendlyErrorInfo {
+  const status = extractStatusFromError(error)
+  if (status === 403) {
+    return {
+      title: "No se puede eliminar",
+      description: "No cuentas con permisos para eliminar este producto o está protegido por políticas de seguridad."
+    }
+  }
+  if (status === 409) {
+    return {
+      title: "Producto con movimientos",
+      description: "El producto tiene ventas, pedidos u otros movimientos asociados y no puede eliminarse."
+    }
+  }
+  if (status === 404) {
+    return {
+      title: "Producto no encontrado",
+      description: "Parece que el producto ya fue eliminado. Refresca la lista para confirmar."
+    }
+  }
+  return {
+    title: "No se pudo eliminar",
+    description: "Hubo un inconveniente al eliminar el producto. Intenta nuevamente o contacta soporte."
+  }
+}
+
 /* =========================================================
    COMPONENTE PRINCIPAL
 ======================================================== */
@@ -459,7 +552,7 @@ export default function ProductosPage() {
     }
 
     try {
-      const res = await actualizarProducto(editandoProducto.id, body as any, toast)
+      const res = await actualizarProducto(editandoProducto.id, body as any)
       if (res) {
         toast({ title: "Producto actualizado", description: "Cambios guardados" })
         setProductos(prev =>
@@ -480,9 +573,10 @@ export default function ProductosPage() {
       }
     } catch (err) {
       console.error("Error guardarEdicion:", err)
+      const { title, description } = interpretProductUpdateError(err)
       toast({
-        title: "Error",
-        description: "Error de conexión",
+        title,
+        description,
         variant: "destructive"
       })
     }
@@ -498,9 +592,10 @@ export default function ProductosPage() {
       cargarProductos()
       setRefreshTick(t => t + 1)
     } catch (err: any) {
+      const { title, description } = interpretProductDeletionError(err)
       toast({
-        title: "Error",
-        description: err?.message || "No se pudo eliminar",
+        title,
+        description,
         variant: "destructive"
       })
     }
@@ -1443,7 +1538,8 @@ export default function ProductosPage() {
                   cargarProductos()
                 } catch (err: any) {
                   console.error('Error eliminar stock', err)
-                  toast({ title: 'Error', description: err?.message || 'No se pudo eliminar', variant: 'destructive' })
+                  const { title, description } = interpretStockDeletionError(err)
+                  toast({ title, description, variant: 'destructive' })
                 } finally {
                   setDeletingStock(false)
                   setStockToDelete(null)

@@ -6,7 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Edit, Trash2 } from "lucide-react"
+import { Edit, Trash2, RefreshCw } from "lucide-react"
 import { getPedidoReport, type PedidoReportDTO, fetchWithAuth, deletePedido, editPedido } from "@/lib/api"
 import { apiUrl } from "@/lib/config"
 import { useToast } from "@/lib/use-toast"
@@ -36,8 +36,32 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
   
 
   const [proveedores, setProveedores] = useState<{ id: number; razonComercial: string }[]>([])
-  const [selectedProvider, setSelectedProvider] = useState<string>(initialProviderId ?? "")
-  const [fechaPedido, setFechaPedido] = useState<string>(initialFecha ?? new Date().toISOString().split("T")[0])
+  // Persist selection in sessionStorage so remounts don't reset user filters
+  const STORAGE_PROVIDER_KEY = "pedidos.selectedProvider"
+  const STORAGE_FECHA_KEY = "pedidos.fechaPedido"
+
+  const getInitialProvider = () => {
+    if (initialProviderId !== undefined && initialProviderId !== null) return String(initialProviderId)
+    try {
+      const s = sessionStorage.getItem(STORAGE_PROVIDER_KEY)
+      return s ?? ""
+    } catch (e) {
+      return ""
+    }
+  }
+
+  const getInitialFecha = () => {
+    if (initialFecha !== undefined && initialFecha !== null) return String(initialFecha)
+    try {
+      const s = sessionStorage.getItem(STORAGE_FECHA_KEY)
+      return s ?? new Date().toISOString().split("T")[0]
+    } catch (e) {
+      return new Date().toISOString().split("T")[0]
+    }
+  }
+
+  const [selectedProvider, setSelectedProvider] = useState<string>(getInitialProvider())
+  const [fechaPedido, setFechaPedido] = useState<string>(getInitialFecha())
 
   // Edit form fields (defined after selectedProvider/fechaPedido)
   const [editProveedorId, setEditProveedorId] = useState<string>(selectedProvider ?? "")
@@ -49,9 +73,22 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
 
   // Reflect incoming initial props if they change
   useEffect(() => {
-    if (initialProviderId !== undefined) setSelectedProvider(initialProviderId)
-    if (initialFecha !== undefined) setFechaPedido(initialFecha)
+    if (initialProviderId !== undefined && initialProviderId !== null) setSelectedProvider(String(initialProviderId))
+    if (initialFecha !== undefined && initialFecha !== null) setFechaPedido(String(initialFecha))
   }, [initialProviderId, initialFecha])
+
+  // Persist selection to sessionStorage so it survives remounts
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_PROVIDER_KEY, selectedProvider)
+    } catch (e) {}
+  }, [selectedProvider])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_FECHA_KEY, fechaPedido)
+    } catch (e) {}
+  }, [fechaPedido])
 
   // Cargar proveedores para el select
   useEffect(() => {
@@ -71,7 +108,11 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
   }, [])
 
   // Cargar pedidos según filtros (provider + fecha)
+  const loadingRef = React.useRef(false)
+
   const loadPedidos = async () => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setLoading(true)
     try {
       const pId = selectedProvider ? parseInt(selectedProvider) : 0
@@ -82,6 +123,7 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
       setPedidos([])
     } finally {
       setLoading(false)
+      loadingRef.current = false
     }
   }
 
@@ -178,6 +220,20 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
       return
     }
 
+    // Prevent lowering the initial quantity below what has already been sold/consumed.
+    // sold = original cantInicial - current cantUnidades
+    const originalCantInicial = (editTarget as any).cantInicial ?? 0
+    const currentCant = (editTarget as any).cantUnidades ?? 0
+    const soldAlready = Number(originalCantInicial) - Number(currentCant)
+    if (!Number.isNaN(soldAlready) && cantidad < soldAlready) {
+      toast({
+        title: "No permitido",
+        description: `La nueva cantidad inicial (${cantidad}) no puede ser menor a la cantidad ya vendida/consumida (${soldAlready}).`,
+        variant: "destructive"
+      })
+      return
+    }
+
     const payload = {
       proveedorId: proveedorIdNum,
       fechaDePedido: editFecha,
@@ -191,6 +247,10 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
 
     setEditingSaving(true)
     try {
+      // Ensure cantidad inicial is sent as integer
+      if (payload.stock && typeof payload.stock.cantidadInicial === 'number') {
+        payload.stock.cantidadInicial = Math.floor(payload.stock.cantidadInicial)
+      }
       await editPedido(rawId, payload, toast)
       toast({ title: 'Pedido actualizado', description: `Pedido modificado: ${editTarget.producto}` })
       setEditDialogOpen(false)
@@ -209,6 +269,39 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
     const idToUse = editProveedorId || selectedProvider || ""
     const found = proveedores.find(p => String(p.id) === String(idToUse))
     return found ? found.razonComercial : ""
+  })()
+
+  // Cantidad ya vendida / consumida para el pedido que se está editando
+  const editSoldAlready = (() => {
+    if (!editTarget) return 0
+    const original = Number((editTarget as any).cantInicial ?? 0)
+    const current = Number((editTarget as any).cantUnidades ?? 0)
+    const sold = original - current
+    return Number.isNaN(sold) ? 0 : sold
+  })()
+
+  // Validaciones y mensajes para el modal de edición
+  const editValidation = (() => {
+    const errors: string[] = []
+    if (!editTarget) return { errors }
+    const codigo = String(editStockCodigo || "").trim()
+    if (!codigo) errors.push("Código de lote vacío")
+
+    const cantidad = typeof editStockCantidadInicial === 'number' ? Math.floor(editStockCantidadInicial) : (editStockCantidadInicial ? Math.floor(Number(editStockCantidadInicial)) : NaN)
+    if (Number.isNaN(cantidad) || cantidad <= 0) errors.push("Cantidad inicial debe ser mayor que 0")
+
+    if (!Number.isNaN(cantidad)) {
+      if (cantidad < editSoldAlready) {
+        errors.push(`La nueva cantidad inicial (${cantidad}) es menor a las unidades ya vendidas (${editSoldAlready})`)
+      }
+    }
+
+    // Precio de compra puede ser 0 en algunos flujos, pero si se especifica, evitar negativos
+    if (editStockPrecioCompra !== "" && typeof editStockPrecioCompra === 'number' && editStockPrecioCompra < 0) {
+      errors.push("Precio de compra inválido")
+    }
+
+    return { errors, cantidad }
   })()
 
   return (
@@ -296,7 +389,7 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
       </CardContent>
       
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setDeleteTarget(null) } else setDeleteDialogOpen(open) }}>
-        <DialogContent>
+          <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirmar eliminación</DialogTitle>
             <DialogDescription>
@@ -306,7 +399,7 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
           <DialogFooter>
             <Button variant="ghost" onClick={() => { setDeleteDialogOpen(false); setDeleteTarget(null) }} disabled={!!deletingKey}>Cancelar</Button>
             <Button onClick={confirmDelete} disabled={!!deletingKey}>
-              {deletingKey ? <span className="flex items-center gap-2"><Spinner /> Eliminando...</span> : 'Confirmar'}
+              {deletingKey ? <span className="flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin" /> Eliminando...</span> : 'Confirmar'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -323,6 +416,17 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
           </DialogHeader>
 
           <div className="grid gap-3 py-2">
+            {/* Resumen de errores en rojo para hacerlo difícil intentar guardar inválido */}
+            {editValidation.errors.length > 0 && (
+              <div className="p-3 rounded-md bg-rose-50 border border-rose-100 text-rose-700 text-sm">
+                <strong className="block mb-1">Corrige los siguientes errores antes de guardar:</strong>
+                <ul className="list-disc ml-5 space-y-0.5">
+                  {editValidation.errors.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div>
               <Label>Proveedor</Label>
               <Input value={editProveedorName} disabled />
@@ -340,7 +444,23 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
 
             <div>
               <Label>Cantidad inicial</Label>
-              <Input type="number" value={String(editStockCantidadInicial ?? "")} onChange={(e) => setEditStockCantidadInicial(e.target.value === "" ? "" : Number(e.target.value))} />
+              <Input
+                type="number"
+                step={1}
+                min={Math.max(1, editSoldAlready)}
+                value={String(editStockCantidadInicial ?? "")}
+                onChange={(e) => {
+                  const v = e.target.value === "" ? "" : Math.floor(Number(e.target.value) || 0)
+                  setEditStockCantidadInicial(v)
+                }}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Unidades vendidas: <span className="font-medium">{editSoldAlready}</span></p>
+              {typeof editValidation.cantidad !== 'undefined' && editValidation.cantidad <= 0 && (
+                <p className="text-xs text-rose-600 mt-1">Cantidad inicial debe ser mayor que 0.</p>
+              )}
+              {editValidation.errors.find(x => x.includes('vendidas')) && (
+                <p className="text-xs text-rose-600 mt-1">La nueva cantidad no puede ser menor a las unidades vendidas.</p>
+              )}
             </div>
 
             <div>
@@ -351,13 +471,16 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
             <div>
               <Label>Precio de compra</Label>
               <Input type="number" step="0.01" value={String(editStockPrecioCompra ?? "")} onChange={(e) => setEditStockPrecioCompra(e.target.value === "" ? "" : Number(e.target.value))} />
+              {editStockPrecioCompra !== "" && typeof editStockPrecioCompra === 'number' && editStockPrecioCompra < 0 && (
+                <p className="text-xs text-rose-600 mt-1">Precio de compra inválido.</p>
+              )}
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setEditTarget(null) }} disabled={editingSaving}>Cancelar</Button>
-            <Button onClick={confirmEdit} disabled={editingSaving}>
-              {editingSaving ? <span className="flex items-center gap-2"><Spinner /> Guardando...</span> : 'Guardar cambios'}
+            <Button onClick={confirmEdit} disabled={editingSaving || editValidation.errors.length > 0}>
+              {editingSaving ? <span className="flex items-center gap-2"><RefreshCw className="h-4 w-4 animate-spin" /> Guardando...</span> : 'Guardar cambios'}
             </Button>
           </DialogFooter>
         </DialogContent>
