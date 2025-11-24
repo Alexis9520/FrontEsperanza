@@ -1,0 +1,136 @@
+"use client"
+
+import React, { useEffect, useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/lib/use-toast"
+import { editStock } from "@/lib/api"
+
+type StockLike = {
+  // puede contener distintos nombres según endpoint
+  lote_id?: number
+  id?: number
+  stockId?: number
+  codigoStock?: string | null
+  cantidadUnidades?: number
+  fechaVencimiento?: string | null
+  precioCompra?: number | null
+  codigoBarras?: string | null
+  // campos adicionales del producto para enviar en el body
+  idProducto?: number
+  nombre?: string
+  concentracion?: string | null
+  cantidadMinima?: number | null
+  precioVenta?: number | null
+  laboratorio?: string | null
+  categoria?: string | null
+}
+
+export default function EditStockDialog({
+  open,
+  onOpenChange,
+  stock,
+  onSaved
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  stock: StockLike | null
+  onSaved?: () => void
+}) {
+  const { toast } = useToast()
+  const [codigoStock, setCodigoStock] = useState("")
+  const [cantidad, setCantidad] = useState<number | "">("")
+  const [precio, setPrecio] = useState<number | "">("")
+  const [fechaV, setFechaV] = useState<string>("")
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!stock) return
+    setCodigoStock(stock.codigoStock ?? "")
+    setCantidad(stock.cantidadUnidades ?? "")
+    setPrecio(stock.precioCompra ?? "")
+    setFechaV(stock.fechaVencimiento ?? "")
+  }, [stock])
+
+  const resolveStockId = (s: StockLike | null) => {
+    if (!s) return null
+    // Prioriza el campo `id` que el backend devuelve para cada stock
+    return (s as any).id ?? (s as any).lote_id ?? (s as any).stockId ?? null
+  }
+
+  const handleSave = async () => {
+    const id = resolveStockId(stock)
+    if (!id) {
+      toast({ title: "Error", description: "Stock sin identificador (id)", variant: "destructive" })
+      return
+    }
+    if (!codigoStock || codigoStock.trim() === "") {
+      toast({ title: "Validación", description: "Código de lote es obligatorio", variant: "destructive" })
+      return
+    }
+    // Construir body con los campos que el backend espera, incluyendo ids
+    const body = {
+      id: id,
+      codigoStock: codigoStock.trim(),
+      idProducto: (stock && ((stock as any).idProducto ?? (stock as any).productoId)) ?? undefined,
+      nombre: stock?.nombre ?? undefined,
+      concentracion: stock?.concentracion ?? undefined,
+      cantidadUnidades: Number(cantidad) || 0,
+      cantidadMinima: stock?.cantidadMinima ?? undefined,
+      precioCompra: Number(precio) || 0,
+      precioVenta: stock?.precioVenta ?? undefined,
+      fechaVencimiento: fechaV || null,
+      laboratorio: stock?.laboratorio ?? undefined,
+      categoria: stock?.categoria ?? undefined
+    }
+    try {
+      setSaving(true)
+      await editStock(id, body)
+      toast({ title: "Guardado", description: "Lote actualizado" })
+      onOpenChange(false)
+      onSaved && onSaved()
+    } catch (err: any) {
+      console.error("Error editStock", err)
+      toast({ title: "Error", description: err?.message || "No se pudo actualizar lote", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar Lote</DialogTitle>
+          <DialogDescription>Actualiza los datos del lote / stock</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 mt-4">
+          <div>
+            <Label>Código de Lote</Label>
+            <Input value={codigoStock} onChange={e => setCodigoStock(e.target.value)} />
+          </div>
+          <div>
+            <Label>Cantidad Unidades</Label>
+            <Input type="number" min={0} value={String(cantidad)} onChange={e => setCantidad(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
+          </div>
+          <div>
+            <Label>Precio Compra</Label>
+            <Input type="number" step="0.01" min={0} value={String(precio)} onChange={e => setPrecio(Number(e.target.value) || "")} />
+          </div>
+          <div>
+            <Label>Fecha Vencimiento</Label>
+            <Input type="date" value={fechaV || ""} onChange={e => setFechaV(e.target.value)} />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={saving}>{saving ? "Guardando..." : "Guardar"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

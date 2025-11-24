@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useEffect, useState, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   Edit,
   Plus,
@@ -24,6 +25,7 @@ import clsx from "clsx"
 import { apiUrl } from "@/lib/config"
 import { AddStockPayload, fetchWithAuth, NewStockLot, ProductDTO } from "@/lib/api"
 import { useToast } from "@/lib/use-toast"
+import PedidosTablex from "@/components/proveedores/PedidosTablex"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -76,6 +78,16 @@ type Proveedor = {
 ======================================================== */
 export default function ProveedoresPage() {
   const { toast } = useToast()
+
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (!searchParams) return
+    const v = searchParams.get('view')
+    if (v === 'pedidos') setActiveView('pedidos')
+  }, [searchParams])
+
+  const [activeView, setActiveView] = useState<'proveedores' | 'pedidos'>('proveedores')
 
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [busqueda, setBusqueda] = useState("")
@@ -427,6 +439,22 @@ export default function ProveedoresPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <div className="hidden sm:flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={activeView === 'proveedores' ? 'default' : 'outline'}
+              onClick={() => { setActiveView('proveedores'); cargarProveedores() }}
+            >
+              Proveedores
+            </Button>
+            <Button
+              size="sm"
+              variant={activeView === 'pedidos' ? 'default' : 'outline'}
+              onClick={() => setActiveView('pedidos')}
+            >
+              Pedidos
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -536,7 +564,7 @@ export default function ProveedoresPage() {
         />
       </div>
 
-      {/* TABLA */}
+      {activeView === 'proveedores' ? (
       <Card className="relative overflow-hidden border-border/60">
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -661,6 +689,12 @@ export default function ProveedoresPage() {
           </div>
         </CardContent>
       </Card>
+      ) : (
+        <PedidosTablex
+          initialProviderId={searchParams?.get('proveedor') ?? undefined}
+          initialFecha={searchParams?.get('fecha') ?? undefined}
+        />
+      )}
       {/* ==========================================
           DIALOG: NUEVO PEDIDO (STOCK)
          ========================================== */}

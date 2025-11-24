@@ -37,7 +37,7 @@ export function ProductsInventoryTable() {
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
   const params = useMemo(() => ({
-    search: search.trim() || undefined,
+    q: search.trim() || undefined,
     categoria: categoria.trim() || undefined,
     laboratorio: laboratorio.trim() || undefined,
     tipoMedicamento: tipoMedicamento.trim() || undefined,
@@ -169,7 +169,15 @@ export function ProductsInventoryTable() {
       const allDataParams = { ...params, page: 0, size: 10000 }
       const res = await getProducts(allDataParams)
       if (res && res.content.length > 0) {
-        createPdf(res.content, `inventario_total_${new Date().toISOString().split('T')[0]}.pdf`)
+        const filtered = res.content.filter(p => {
+          const cat = (p.categoria || "").trim().toLowerCase()
+          return cat !== "regalos"
+        })
+        if (filtered.length > 0) {
+          createPdf(filtered, `inventario_total_${new Date().toISOString().split('T')[0]}.pdf`)
+        } else {
+          alert("No hay datos para exportar después de excluir la categoría 'Regalos'.")
+        }
       } else {
         alert("No hay datos para exportar con los filtros actuales.")
       }

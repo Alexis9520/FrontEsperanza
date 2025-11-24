@@ -4,8 +4,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
-  useCallback,
-  useRef
+  useCallback
 } from "react"
 import {
   Edit,
@@ -30,9 +29,11 @@ import {
   X
 } from "lucide-react"
 import clsx from "clsx"
-
+import ProductoForm from "@/components/productos/ProductoForm"
+import EditStockDialog from "@/components/productos/EditStockDialog"
+import CreateStockDialog from "@/components/productos/CreateStockDialog"
 import { apiUrl } from "@/lib/config"
-import { fetchWithAuth } from "@/lib/api"
+import { fetchWithAuth, crearProducto, actualizarProducto, deleteStock } from "@/lib/api"
 import { useToast } from "@/lib/use-toast"
 
 import { Button } from "@/components/ui/button"
@@ -53,10 +54,6 @@ import {
   TableRow
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import Spinner from "@/components/ui/Spinner"
-import { ComboBoxCategoria } from "@/components/ComboBoxCategoria"
-import { ComboBoxProveedor } from "@/components/ComboBoxProveedor"
-import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -84,6 +81,7 @@ import {
    TIPOS
 ========================================================= */
 type StockLote = {
+  id: number
   codigoStock?: string
   cantidadUnidades: number
   fechaVencimiento: string
@@ -122,9 +120,6 @@ type Producto = {
 /* =========================================================
    HELPERS
 ========================================================= */
-function generarCodigoLote(producto: Producto, index: number) {
-  return `${producto.codigoBarras}-${index + 1}`
-}
 
 const today = () => new Date()
 
@@ -181,20 +176,12 @@ export default function ProductosPage() {
     principioActivo: "",
     tipoMedicamento: "GENÉRICO",
     presentacion: "",
-    proveedorIds: [] as number[],
-    stocks: [] as StockLote[]
+    proveedorIds: [] as number[]
   })
-  const [nuevoLote, setNuevoLote] = useState<StockLote>({
-    codigoStock: "",
-    cantidadUnidades: 0,
-    fechaVencimiento: "",
-    precioCompra: 0
-  })
+
 
   // Editar producto
   const [editandoProducto, setEditandoProducto] = useState<any>(null)
-  const [editLoteIndex, setEditLoteIndex] = useState<number | null>(null)
-  const [loteEnEdicion, setLoteEnEdicion] = useState<StockLote | null>(null)
 
   // Confirmación antes de eliminar producto
   const [productoAEliminar, setProductoAEliminar] = useState<Producto | null>(null)
@@ -202,6 +189,10 @@ export default function ProductosPage() {
 
   // Modal lotes
   const [lotesModalProducto, setLotesModalProducto] = useState<Producto | null>(null)
+  const [editingStock, setEditingStock] = useState<any>(null)
+  const [stockToDelete, setStockToDelete] = useState<{ id: number | string; codigo?: string | null; productoId?: number } | null>(null)
+  const [deletingStock, setDeletingStock] = useState(false)
+  const [creatingStockFor, setCreatingStockFor] = useState<{ id: number; nombre?: string } | null>(null)
 
   /* ------------ CARGA DATOS AUXILIARES ------------- */
   const cargarDiccionarioProveedores = useCallback(async () => {
@@ -261,11 +252,6 @@ export default function ProductosPage() {
   }, [cargarProductos, refreshTick]) // Añadido refreshTick para recargar tras guardar
 
   /* ------------ MÉTRICAS (GLOBALES vs PAGINADAS) ------------- */
-  // Nota: la API devuelve listados paginados. Para mostrar métricas globales
-  // (total de productos, unidades, stocks críticos, lotes vencidos) debemos
-  // obtener todos los productos sin aplicar la búsqueda/paginación o pedir un
-  // endpoint de resumen en el backend. Aquí hacemos una carga separada en
-  // segundo plano (por lotes) para calcular las métricas globales.
 
   const [globalMetricas, setGlobalMetricas] = useState<null | {
     productos: number
@@ -340,41 +326,7 @@ export default function ProductosPage() {
   }, [globalMetricas, productos])
 
   /* ------------ CRUD NUEVO ------------- */
-  function agregarLoteANuevo() {
-    if (!nuevoLote.cantidadUnidades || !nuevoLote.fechaVencimiento) {
-      toast({
-        title: "Completa lote",
-        description: "Unidades y fecha son obligatorios",
-        variant: "destructive"
-      })
-      return
-    }
-    setNuevoProducto(p => ({
-      ...p,
-      stocks: [
-        ...p.stocks,
-        {
-          ...nuevoLote,
-          codigoStock:
-            nuevoLote.codigoStock ||
-            `L${(p.stocks.length + 1).toString().padStart(2, "0")}`
-        }
-      ]
-    }))
-    setNuevoLote({
-      codigoStock: "",
-      cantidadUnidades: 0,
-      fechaVencimiento: "",
-      precioCompra: 0
-    })
-  }
 
-  function eliminarLoteDeNuevo(idx: number) {
-    setNuevoProducto(p => ({
-      ...p,
-      stocks: p.stocks.filter((_, i) => i !== idx)
-    }))
-  }
 
   async function agregarProducto() {
     // Ahora sólo nombre es obligatorio
@@ -387,31 +339,7 @@ export default function ProductosPage() {
       return
     }
 
-    const stocks = nuevoProducto.stocks.map((l, idx) => ({
-      codigoStock:
-        l.codigoStock ||
-        (nuevoProducto.codigo_barras
-          ? generarCodigoLote(
-            {
-              id: 0,
-              codigoBarras: nuevoProducto.codigo_barras,
-              nombre: nuevoProducto.nombre,
-              concentracion: nuevoProducto.concentracion,
-              cantidadGeneral: 0,
-              precioVentaUnd: Number(nuevoProducto.precio_venta_und) || 0,
-              descuento: Number(nuevoProducto.descuento) || 0,
-              laboratorio: nuevoProducto.laboratorio,
-              categoria: nuevoProducto.categoria
-            } as Producto,
-            idx
-          )
-          : `L${idx + 1}`),
-      cantidadUnidades: Number(l.cantidadUnidades) || 0,
-      fechaVencimiento: l.fechaVencimiento,
-      precioCompra: Number(l.precioCompra) || 0
-    }))
-
-    const totalUnidades = stocks.reduce((s, l) => s + l.cantidadUnidades, 0)
+    const totalUnidades = Number(nuevoProducto.cantidad_general) || 0
 
     const body: any = {
       codigoBarras: nuevoProducto.codigo_barras && nuevoProducto.codigo_barras.trim() !== "" ? nuevoProducto.codigo_barras : null,
@@ -429,15 +357,10 @@ export default function ProductosPage() {
       tipoMedicamento: nuevoProducto.tipoMedicamento || null,
       presentacion: nuevoProducto.presentacion && nuevoProducto.presentacion.trim() !== "" ? nuevoProducto.presentacion : null,
       proveedorIds: nuevoProducto.proveedorIds, // <--- CAMBIO: Enviar array
-      stocks: stocks.length > 0 ? stocks : []
     }
 
     try {
-      const data = await fetchWithAuth(apiUrl("/productos/nuevo"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      })
+      const data = await crearProducto(body as any, toast)
       toast({
         title: data?.reactivado ? "Producto restaurado" : "Producto agregado",
         description: data?.reactivado ? "Se reactivó y actualizó" : "Creado correctamente"
@@ -458,13 +381,6 @@ export default function ProductosPage() {
         tipoMedicamento: "GENÉRICO",
         presentacion: "",
         proveedorIds: [], // <--- Resetear array
-        stocks: []
-      })
-      setNuevoLote({
-        codigoStock: "",
-        cantidadUnidades: 0,
-        fechaVencimiento: "",
-        precioCompra: 0
       })
       cargarProductos()
       setRefreshTick(t => t + 1)
@@ -495,74 +411,11 @@ export default function ProductosPage() {
       principioActivo: p.principioActivo || "",
       tipoMedicamento: p.tipoMedicamento || "GENÉRICO",
       presentacion: p.presentacion || "",
-      proveedorIds: p.proveedores?.map(prov => prov.id) || [], // <--- CAMBIO: Cargar array existente o vacío
-      stocks: (p.stocks || []).map((l, idx) => ({
-        codigoStock: l.codigoStock || generarCodigoLote(p, idx),
-        cantidadUnidades: l.cantidadUnidades,
-        fechaVencimiento: l.fechaVencimiento,
-        precioCompra: l.precioCompra
-      }))
+      proveedorIds: p.proveedores?.map(prov => prov.id) || [] // <--- CAMBIO: Cargar array existente o vacío
     })
   }
 
-  function agregarLoteAEdicion() {
-    if (!loteEnEdicion?.cantidadUnidades || !loteEnEdicion.fechaVencimiento) {
-      toast({
-        title: "Campos obligatorios",
-        description: "Unidades y fecha",
-        variant: "destructive"
-      })
-      return
-    }
-    setEditandoProducto((prev: any) => ({
-      ...prev,
-      stocks: [
-        ...(prev.stocks || []),
-        {
-          ...loteEnEdicion,
-          codigoStock:
-            loteEnEdicion.codigoStock ||
-            `L${(prev.stocks.length + 1).toString().padStart(2, "0")}`
-        }
-      ]
-    }))
-    setLoteEnEdicion({
-      codigoStock: "",
-      cantidadUnidades: 0,
-      fechaVencimiento: "",
-      precioCompra: 0
-    })
-    setEditLoteIndex(null)
-  }
 
-  function editarLoteDeEdicion(idx: number) {
-    setLoteEnEdicion({ ...(editandoProducto.stocks[idx]) })
-    setEditLoteIndex(idx)
-  }
-
-  function guardarLoteEditado() {
-    if (editLoteIndex === null || !loteEnEdicion) return
-    setEditandoProducto((prev: any) => ({
-      ...prev,
-      stocks: prev.stocks.map((l: StockLote, i: number) =>
-        i === editLoteIndex ? { ...loteEnEdicion } : l
-      )
-    }))
-    setLoteEnEdicion({
-      codigoStock: "",
-      cantidadUnidades: 0,
-      fechaVencimiento: "",
-      precioCompra: 0
-    })
-    setEditLoteIndex(null)
-  }
-
-  function eliminarLoteDeEdicion(idx: number) {
-    setEditandoProducto((prev: any) => ({
-      ...prev,
-      stocks: prev.stocks.filter((_: any, i: number) => i !== idx)
-    }))
-  }
 
   async function guardarEdicion() {
     if (!editandoProducto) return
@@ -577,7 +430,6 @@ export default function ProductosPage() {
     }
 
     if (!editandoProducto.id) {
-      // no tenemos id — evitar enviar a ruta incorrecta
       toast({
         title: "Error",
         description: "Producto sin identificador (id). No se puede guardar.",
@@ -586,17 +438,7 @@ export default function ProductosPage() {
       return
     }
 
-    const stocks = (editandoProducto.stocks || []).map(
-      (l: StockLote, idx: number) => ({
-        codigoStock:
-          l.codigoStock || (editandoProducto.codigo_barras ? generarCodigoLote(editandoProducto as Producto, idx) : `L${idx + 1}`),
-        cantidadUnidades: Number(l.cantidadUnidades) || 0,
-        fechaVencimiento: l.fechaVencimiento,
-        precioCompra: Number(l.precioCompra) || 0
-      })
-    )
-
-    const totalUnidades = stocks.reduce((s: number, l: StockLote) => s + l.cantidadUnidades, 0)
+    const totalUnidades = Number(editandoProducto.cantidad_general) || 0
 
     const body: any = {
       codigoBarras: editandoProducto.codigo_barras && editandoProducto.codigo_barras.trim() !== "" ? editandoProducto.codigo_barras : null,
@@ -613,22 +455,11 @@ export default function ProductosPage() {
       principioActivo: editandoProducto.principioActivo && editandoProducto.principioActivo.trim() !== "" ? editandoProducto.principioActivo : null,
       tipoMedicamento: editandoProducto.tipoMedicamento || null,
       presentacion: editandoProducto.presentacion && editandoProducto.presentacion.trim() !== "" ? editandoProducto.presentacion : null,
-      proveedorIds: editandoProducto.proveedorIds, // <--- CAMBIO: Enviar array en PUT
-      stocks: stocks.length > 0 ? stocks : []
+      proveedorIds: editandoProducto.proveedorIds,
     }
 
     try {
-      // Log para depuración rápida
-      console.log("PUT ->", apiUrl(`/productos/${editandoProducto.id}`), "body:", body)
-
-      const res = await fetchWithAuth(
-        apiUrl(`/productos/${editandoProducto.id}`),
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body)
-        }
-      )
+      const res = await actualizarProducto(editandoProducto.id, body as any, toast)
       if (res) {
         toast({ title: "Producto actualizado", description: "Cambios guardados" })
         setProductos(prev =>
@@ -677,8 +508,6 @@ export default function ProductosPage() {
 
   function cerrarEdicion() {
     setEditandoProducto(null)
-    setLoteEnEdicion(null)
-    setEditLoteIndex(null)
   }
 
   /* ------------ UI HELPERS ------------- */
@@ -838,303 +667,12 @@ export default function ProductosPage() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="grid md:grid-cols-2 gap-10 max-h-[65vh] overflow-y-auto pr-2">
-                {/* Columna 1 */}
-                <section className="space-y-6">
-                  <SectionTitle title="Datos Generales" />
-                  <Field
-                    label="Código de barras"
-                    value={nuevoProducto.codigo_barras}
-                    onChange={v =>
-                      setNuevoProducto(p => ({ ...p, codigo_barras: v }))
-                    }
-                  />
-                  <Field
-                    label="Nombre *"
-                    value={nuevoProducto.nombre}
-                    onChange={v =>
-                      setNuevoProducto(p => ({ ...p, nombre: v }))
-                    }
-                  />
-                  <Field
-                    label="Concentración"
-                    value={nuevoProducto.concentracion}
-                    onChange={v =>
-                      setNuevoProducto(p => ({ ...p, concentracion: v }))
-                    }
-                  />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Categoría</Label>
-                    <ComboBoxCategoria
-                      value={nuevoProducto.categoria}
-                      onChange={categoria =>
-                        setNuevoProducto(p => ({ ...p, categoria }))
-                      }
-                    />
-                  </div>
-                  <Field
-                    label="Principio activo"
-                    value={nuevoProducto.principioActivo}
-                    onChange={v =>
-                      setNuevoProducto(p => ({ ...p, principioActivo: v }))
-                    }
-                  />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Tipo</Label>
-                    <Select
-                      value={nuevoProducto.tipoMedicamento}
-                      onValueChange={value =>
-                        setNuevoProducto(p => ({ ...p, tipoMedicamento: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="GENÉRICO">Genérico</SelectItem>
-                        <SelectItem value="MARCA">Marca</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Field
-                    label="Presentación"
-                    value={nuevoProducto.presentacion}
-                    onChange={v =>
-                      setNuevoProducto(p => ({ ...p, presentacion: v }))
-                    }
-                  />
-                  <Field
-                    label="Laboratorio"
-                    value={nuevoProducto.laboratorio}
-                    onChange={v =>
-                      setNuevoProducto(p => ({ ...p, laboratorio: v }))
-                    }
-                  />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Proveedores</Label>
-                    <div className="flex flex-wrap gap-2 mb-1.5">
-                      {nuevoProducto.proveedorIds.map((id) => (
-                        <Badge key={id} variant="secondary" className="gap-1 pr-1 pl-2 h-6">
-                          {/* AQUÍ LA MAGIA: Buscamos el nombre o mostramos cargando/ID */}
-                          {diccionarioProveedores[id] || `Prov #${id}`}
-
-                          <div
-                            className="cursor-pointer rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors ml-1"
-                            onClick={() =>
-                              setNuevoProducto((p) => ({
-                                ...p,
-                                proveedorIds: p.proveedorIds.filter((pid) => pid !== id),
-                              }))
-                            }
-                          >
-                            <X className="h-3 w-3" />
-                          </div>
-                        </Badge>
-                      ))}
-                      {nuevoProducto.proveedorIds.length === 0 && (
-                        <span className="text-[10px] text-muted-foreground italic py-1">
-                          Selecciona proveedores...
-                        </span>
-                      )}
-                    </div>
-                    {/* Tu ComboBoxProveedor se mantiene igual, solo "empuja" IDs */}
-                    <ComboBoxProveedor
-                      value={null}
-                      onChange={(idSeleccionado) => {
-                        if (idSeleccionado && !nuevoProducto.proveedorIds.includes(idSeleccionado)) {
-                          // Si por alguna razón el diccionario no tiene este ID (recién creado), 
-                          // podrías recargar el diccionario, pero generalmente ya estará ahí.
-                          setNuevoProducto((p) => ({
-                            ...p,
-                            proveedorIds: [...p.proveedorIds, idSeleccionado],
-                          }))
-                        }
-                      }}
-                    />
-                  </div>
-                  <Field
-                    label="Stock mínimo"
-                    type="number"
-                    value={nuevoProducto.cantidad_minima}
-                    onChange={v =>
-                      setNuevoProducto(p => ({ ...p, cantidad_minima: v }))
-                    }
-                  />
-                </section>
-
-                {/* Columna 2 */}
-                <section className="space-y-6">
-                  <SectionTitle title="Precios / Lotes" />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field
-                      label="Unid/blister"
-                      type="number"
-                      value={nuevoProducto.cantidad_unidades_blister}
-                      onChange={v =>
-                        setNuevoProducto(p => ({
-                          ...p,
-                          cantidad_unidades_blister: v
-                        }))
-                      }
-                    />
-                    <Field
-                      label="Precio blister"
-                      type="number"
-                      step="0.01"
-                      value={nuevoProducto.precio_venta_blister}
-                      onChange={v =>
-                        setNuevoProducto(p => ({
-                          ...p,
-                          precio_venta_blister: v
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field
-                      label="Precio venta"
-                      type="number"
-                      step="0.01"
-                      value={nuevoProducto.precio_venta_und}
-                      onChange={v =>
-                        setNuevoProducto(p => ({
-                          ...p,
-                          precio_venta_und: v
-                        }))
-                      }
-                    />
-
-                  </div>
-
-                  <div className="space-y-3 pt-2">
-                    <SectionTitle title="Lotes iniciales" small />
-                    <div className="grid grid-cols-4 gap-3">
-                      <Input
-                        placeholder="Código"
-                        className="col-span-2"
-                        value={nuevoLote.codigoStock || ""}
-                        onChange={e =>
-                          setNuevoLote(l => ({
-                            ...l,
-                            codigoStock: e.target.value
-                          }))
-                        }
-                      />
-                      <Input
-                        placeholder="Unid"
-                        type="number"
-                        min={1}
-                        className="col-span-2"
-                        value={nuevoLote.cantidadUnidades || ""}
-                        onChange={e =>
-                          setNuevoLote(l => ({
-                            ...l,
-                            cantidadUnidades: Number(e.target.value)
-                          }))
-                        }
-                      />
-                      <Input
-                        type="date"
-                        className="col-span-2"
-                        value={nuevoLote.fechaVencimiento}
-                        onChange={e =>
-                          setNuevoLote(l => ({
-                            ...l,
-                            fechaVencimiento: e.target.value
-                          }))
-                        }
-                      />
-                      <Input
-                        placeholder="Compra S/"
-                        type="number"
-                        step="0.01"
-                        min={0}
-                        className="col-span-2"
-                        value={nuevoLote.precioCompra || ""}
-                        onChange={e =>
-                          setNuevoLote(l => ({
-                            ...l,
-                            precioCompra: Number(e.target.value)
-                          }))
-                        }
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={agregarLoteANuevo}
-                      >
-                        Agregar lote
-                      </Button>
-                      <span className="text-xs text-muted-foreground">
-                        Total:{" "}
-                        {nuevoProducto.stocks.reduce(
-                          (s, l) => s + l.cantidadUnidades,
-                          0
-                        )}{" "}
-                        u
-                      </span>
-                    </div>
-                    <div className="rounded border bg-muted/30 backdrop-blur-sm max-h-44 overflow-auto">
-                      {nuevoProducto.stocks.length === 0 && (
-                        <div className="text-xs p-4 text-muted-foreground">
-                          Sin lotes
-                        </div>
-                      )}
-                      {nuevoProducto.stocks.length > 0 && (
-                        <Table className="text-xs">
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="py-1">Lote</TableHead>
-                              <TableHead className="py-1">Unid</TableHead>
-                              <TableHead className="py-1">Vence</TableHead>
-                              <TableHead className="py-1">
-                                Compra (S/)
-                              </TableHead>
-                              <TableHead className="py-1 text-right">
-                                Quitar
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {nuevoProducto.stocks.map((l, idx) => (
-                              <TableRow
-                                key={l.codigoStock || `${l.fechaVencimiento}-${idx}`}
-                              >
-                                <TableCell className="py-1">
-                                  {l.codigoStock}
-                                </TableCell>
-                                <TableCell className="py-1">
-                                  {l.cantidadUnidades}
-                                </TableCell>
-                                <TableCell className="py-1">
-                                  {l.fechaVencimiento}
-                                </TableCell>
-                                <TableCell className="py-1">
-                                  S/ {Number(l.precioCompra).toFixed(2)}
-                                </TableCell>
-                                <TableCell className="py-1 text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => eliminarLoteDeNuevo(idx)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </div>
-                  </div>
-                </section>
-              </div>
+              <ProductoForm
+                datos={nuevoProducto}
+                setDatos={setNuevoProducto}
+                diccionarioProveedores={diccionarioProveedores}
+                modoEdicion={false}
+              />
 
               <DialogFooter className="pt-2">
                 <Button onClick={agregarProducto}>Guardar</Button>
@@ -1412,6 +950,7 @@ export default function ProductosPage() {
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
+                            {/* Botón para crear lote movido debajo de la lista de lotes */}
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1530,6 +1069,17 @@ export default function ProductosPage() {
                                     </Table>
                                   </div>
                                 )}
+                                <div className="pt-3">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 text-[11px] flex items-center gap-2 text-red-600"
+                                    onClick={() => setCreatingStockFor({ id: p.id, nombre: p.nombre })}
+                                  >
+                                    <AlertTriangle className="h-4 w-4 text-red-500" />
+                                    Crear lote sin pedido
+                                  </Button>
+                                </div>
                               </div>
 
                               {/* Resumen */}
@@ -1583,7 +1133,7 @@ export default function ProductosPage() {
                                       className="h-7 text-[11px]"
                                       onClick={() => setLotesModalProducto(p)}
                                     >
-                                      Ver en modal
+                                      Más acciones de lotes
                                     </Button>
                                   </div>
                                 </div>
@@ -1694,6 +1244,7 @@ export default function ProductosPage() {
                       <TableHead>Compra (S/)</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Días</TableHead>
+                      <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1742,6 +1293,47 @@ export default function ProductosPage() {
                               {dias < 0 ? `-${Math.abs(dias)} d` : `${dias} d`}
                             </span>
                           </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const stockId = (l as any).id ?? (l as any).lote_id ?? (l as any).stockId ?? null
+                                  if (!stockId) {
+                                    toast({ title: 'Error', description: 'Lote sin identificador (id)', variant: 'destructive' })
+                                    return
+                                  }
+                                  setEditingStock({
+                                    ...(l as any),
+                                    idProducto: lotesModalProducto?.id,
+                                    nombre: lotesModalProducto?.nombre,
+                                    concentracion: lotesModalProducto?.concentracion,
+                                    cantidadMinima: lotesModalProducto?.cantidadMinima,
+                                    precioVenta: (lotesModalProducto as any)?.precioVentaUnd ?? (lotesModalProducto as any)?.precioVenta,
+                                    laboratorio: lotesModalProducto?.laboratorio,
+                                    categoria: lotesModalProducto?.categoria
+                                  })
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  const stockId = (l as any).id ?? (l as any).lote_id ?? (l as any).stockId ?? null
+                                  if (!stockId) {
+                                    toast({ title: 'Error', description: 'Lote sin identificador (id)', variant: 'destructive' })
+                                    return
+                                  }
+                                  setStockToDelete({ id: stockId, codigo: l.codigoStock ?? null, productoId: lotesModalProducto?.id })
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       )
                     })}
@@ -1752,6 +1344,26 @@ export default function ProductosPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {editingStock && (
+        <EditStockDialog
+          open={!!editingStock}
+          onOpenChange={(v) => { if (!v) setEditingStock(null) }}
+          stock={editingStock}
+          onSaved={() => { setEditingStock(null); setRefreshTick(t => t + 1); cargarProductos() }}
+        />
+      )}
+
+      {/* DIALOG CREAR LOTE */}
+      {creatingStockFor && (
+        <CreateStockDialog
+          open={!!creatingStockFor}
+          onOpenChange={(v) => { if (!v) setCreatingStockFor(null) }}
+          productoId={creatingStockFor.id}
+          productoNombre={creatingStockFor.nombre}
+          onCreated={() => { setCreatingStockFor(null); setRefreshTick(t => t + 1); cargarProductos() }}
+        />
+      )}
 
       {/* DIALOG CONFIRMAR ELIMINACIÓN DE PRODUCTO */}
       <Dialog
@@ -1796,6 +1408,55 @@ export default function ProductosPage() {
         </DialogContent>
       </Dialog>
 
+      {/* DIALOG CONFIRMAR ELIMINACIÓN DE LOTE (STOCK) */}
+      <Dialog
+        open={!!stockToDelete}
+        onOpenChange={() => {
+          if (!stockToDelete) return
+          setStockToDelete(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar lote</DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro que deseas eliminar el lote <strong>{stockToDelete?.codigo ?? stockToDelete?.id}</strong> del producto <strong>{productos.find(p => p.id === stockToDelete?.productoId)?.nombre}</strong>? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setStockToDelete(null)}
+              disabled={deletingStock}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (!stockToDelete) return
+                try {
+                  setDeletingStock(true)
+                  await deleteStock(stockToDelete.id)
+                  toast({ title: 'Lote eliminado' })
+                  setRefreshTick(t => t + 1)
+                  cargarProductos()
+                } catch (err: any) {
+                  console.error('Error eliminar stock', err)
+                  toast({ title: 'Error', description: err?.message || 'No se pudo eliminar', variant: 'destructive' })
+                } finally {
+                  setDeletingStock(false)
+                  setStockToDelete(null)
+                }
+              }}
+              disabled={deletingStock}
+            >
+              {deletingStock ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* DIALOG EDITAR */}
       <Dialog open={!!editandoProducto} onOpenChange={cerrarEdicion}>
         <DialogContent className="max-w-5xl w-full">
@@ -1806,386 +1467,14 @@ export default function ProductosPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid md:grid-cols-2 gap-10 max-h-[65vh] overflow-y-auto pr-2">
-            <section className="space-y-6">
-              <SectionTitle title="Datos Generales" />
-              {editandoProducto && (
-                <>
-                  <Field
-                    label="Código de barras *"
-                    value={editandoProducto.codigo_barras}
-                    onChange={v =>
-                      setEditandoProducto((p: any) => ({
-                        ...p,
-                        codigo_barras: v
-                      }))
-                    }
-                  />
-                  <Field
-                    label="Nombre *"
-                    value={editandoProducto.nombre}
-                    onChange={v =>
-                      setEditandoProducto((p: any) => ({ ...p, nombre: v }))
-                    }
-                  />
-                  <Field
-                    label="Concentración"
-                    value={editandoProducto.concentracion}
-                    onChange={v =>
-                      setEditandoProducto((p: any) => ({
-                        ...p,
-                        concentracion: v
-                      }))
-                    }
-                  />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Categoría</Label>
-                    <ComboBoxCategoria
-                      value={editandoProducto.categoria}
-                      onChange={categoria =>
-                        setEditandoProducto((p: any) => ({
-                          ...p,
-                          categoria
-                        }))
-                      }
-                    />
-                  </div>
-                  <Field
-                    label="Principio activo"
-                    value={editandoProducto.principioActivo}
-                    onChange={v =>
-                      setEditandoProducto((p: any) => ({
-                        ...p,
-                        principioActivo: v
-                      }))
-                    }
-                  />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Tipo</Label>
-                    <Select
-                      value={editandoProducto.tipoMedicamento}
-                      onValueChange={value =>
-                        setEditandoProducto((p: any) => ({
-                          ...p,
-                          tipoMedicamento: value
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="GENÉRICO">Genérico</SelectItem>
-                        <SelectItem value="MARCA">Marca</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Field
-                    label="Presentación"
-                    value={editandoProducto.presentacion}
-                    onChange={v =>
-                      setEditandoProducto((p: any) => ({
-                        ...p,
-                        presentacion: v
-                      }))
-                    }
-                  />
-                  <Field
-                    label="Laboratorio"
-                    value={editandoProducto.laboratorio}
-                    onChange={v =>
-                      setEditandoProducto((p: any) => ({
-                        ...p,
-                        laboratorio: v
-                      }))
-                    }
-                  />
-                  <div className="space-y-2">
-                    <Label className="text-xs font-medium">Proveedores</Label>
-                    <div className="flex flex-wrap gap-2 mb-1.5">
-                      {(editandoProducto.proveedorIds || []).map((id: number) => (
-                        <Badge key={id} variant="secondary" className="gap-1 pr-1 pl-2 h-6">
-                          {/* Usamos el mismo diccionario */}
-                          {diccionarioProveedores[id] || `Prov #${id}`}
-
-                          <div
-                            className="cursor-pointer rounded-full p-0.5 hover:bg-destructive/20 hover:text-destructive transition-colors ml-1"
-                            onClick={() =>
-                              setEditandoProducto((p: any) => ({
-                                ...p,
-                                proveedorIds: p.proveedorIds.filter((pid: number) => pid !== id),
-                              }))
-                            }
-                          >
-                            <X className="h-3 w-3" />
-                          </div>
-                        </Badge>
-                      ))}
-                      {editandoProducto.proveedorIds.length === 0 && (
-                        <span className="text-[10px] text-muted-foreground italic py-1">
-                          Selecciona proveedores...
-                        </span>
-                      )}
-                    </div>
-                    <ComboBoxProveedor
-                      value={null}
-                      onChange={(idSeleccionado) => {
-                        if (idSeleccionado && !(editandoProducto.proveedorIds || []).includes(idSeleccionado)) {
-                          setEditandoProducto((p: any) => ({
-                            ...p,
-                            proveedorIds: [...(p.proveedorIds || []), idSeleccionado],
-                          }))
-                        }
-                      }}
-                    />
-                  </div>
-                  <Field
-                    label="Stock mínimo"
-                    type="number"
-                    value={editandoProducto.cantidad_minima}
-                    onChange={v =>
-                      setEditandoProducto((p: any) => ({
-                        ...p,
-                        cantidad_minima: v
-                      }))
-                    }
-                  />
-                </>
-              )}
-            </section>
-
-            <section className="space-y-6">
-              <SectionTitle title="Unidades / Lotes" />
-              {editandoProducto && (
-                <>
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field
-                      label="Unid/blister"
-                      type="number"
-                      value={editandoProducto.cantidad_unidades_blister}
-                      onChange={v =>
-                        setEditandoProducto((p: any) => ({
-                          ...p,
-                          cantidad_unidades_blister: v
-                        }))
-                      }
-                    />
-                    <Field
-                      label="Precio blister"
-                      type="number"
-                      step="0.01"
-                      value={editandoProducto.precio_venta_blister}
-                      onChange={v =>
-                        setEditandoProducto((p: any) => ({
-                          ...p,
-                          precio_venta_blister: v
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field
-                      label="Precio venta *"
-                      type="number"
-                      step="0.01"
-                      value={editandoProducto.precio_venta_und}
-                      onChange={v =>
-                        setEditandoProducto((p: any) => ({
-                          ...p,
-                          precio_venta_und: v
-                        }))
-                      }
-                    />
-
-                  </div>
-
-                  <div className="space-y-2 pt-2">
-                    <SectionTitle title="Lotes" small />
-                    <div className="grid grid-cols-4 gap-3">
-                      <Input
-                        placeholder="Código"
-                        className="col-span-2"
-                        value={loteEnEdicion?.codigoStock || ""}
-                        onChange={e =>
-                          setLoteEnEdicion(o => ({
-                            codigoStock: e.target.value,
-                            cantidadUnidades: o?.cantidadUnidades ?? 0,
-                            fechaVencimiento: o?.fechaVencimiento ?? "",
-                            precioCompra: o?.precioCompra ?? 0
-                          }))
-                        }
-                      />
-                      <Input
-                        placeholder="Unid"
-                        type="number"
-                        min={1}
-                        className="col-span-2"
-                        value={loteEnEdicion?.cantidadUnidades || ""}
-                        onChange={e =>
-                          setLoteEnEdicion(o => ({
-                            codigoStock: o?.codigoStock ?? "",
-                            cantidadUnidades: Number(e.target.value),
-                            fechaVencimiento: o?.fechaVencimiento ?? "",
-                            precioCompra: o?.precioCompra ?? 0
-                          }))
-                        }
-                      />
-                      <Input
-                        type="date"
-                        className="col-span-2"
-                        value={loteEnEdicion?.fechaVencimiento || ""}
-                        onChange={e =>
-                          setLoteEnEdicion(o => ({
-                            codigoStock: o?.codigoStock ?? "",
-                            cantidadUnidades: o?.cantidadUnidades ?? 0,
-                            fechaVencimiento: e.target.value,
-                            precioCompra: o?.precioCompra ?? 0
-                          }))
-                        }
-                      />
-                      <Input
-                        placeholder="Compra S/"
-                        type="number"
-                        step="0.01"
-                        className="col-span-2"
-                        value={loteEnEdicion?.precioCompra ?? ""}
-                        onChange={e =>
-                          setLoteEnEdicion(o =>
-                            o
-                              ? {
-                                codigoStock: o.codigoStock ?? "",
-                                cantidadUnidades: o.cantidadUnidades ?? 0,
-                                fechaVencimiento: o.fechaVencimiento ?? "",
-                                precioCompra: Number(e.target.value)
-                              }
-                              : {
-                                codigoStock: "",
-                                cantidadUnidades: 0,
-                                fechaVencimiento: "",
-                                precioCompra: Number(e.target.value)
-                              }
-                          )
-                        }
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      {editLoteIndex === null ? (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={agregarLoteAEdicion}
-                        >
-                          Agregar lote
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={guardarLoteEditado}
-                        >
-                          Guardar lote
-                        </Button>
-                      )}
-                      {editLoteIndex !== null && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditLoteIndex(null)
-                            setLoteEnEdicion(null)
-                          }}
-                        >
-                          Cancelar
-                        </Button>
-                      )}
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        Stock:{" "}
-                        {editandoProducto.stocks.reduce(
-                          (s: number, l: StockLote) => s + l.cantidadUnidades,
-                          0
-                        )}{" "}
-                        u
-                      </span>
-                    </div>
-                    <div className="rounded-lg border bg-background/50 backdrop-blur-sm max-h-44 overflow-auto">
-                      {(!editandoProducto.stocks ||
-                        editandoProducto.stocks.length === 0) && (
-                          <div className="text-xs p-4 text-muted-foreground">
-                            Sin lotes
-                          </div>
-                        )}
-                      {editandoProducto.stocks &&
-                        editandoProducto.stocks.length > 0 && (
-                          <Table className="text-[11px]">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="py-1">Lote</TableHead>
-                                <TableHead className="py-1">Unid</TableHead>
-                                <TableHead className="py-1">Venc</TableHead>
-                                <TableHead className="py-1">Compra</TableHead>
-                                <TableHead className="py-1 text-right">
-                                  Acciones
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {editandoProducto.stocks.map(
-                                (l: StockLote, idx: number) => (
-                                  <TableRow
-                                    key={
-                                      l.codigoStock ||
-                                      `${l.fechaVencimiento}-${idx}`
-                                    }
-                                  >
-                                    <TableCell className="py-1">
-                                      {l.codigoStock}
-                                    </TableCell>
-                                    <TableCell className="py-1 tabular-nums">
-                                      {l.cantidadUnidades}
-                                    </TableCell>
-                                    <TableCell className="py-1">
-                                      {l.fechaVencimiento}
-                                    </TableCell>
-                                    <TableCell className="py-1 tabular-nums">
-                                      S/ {Number(l.precioCompra).toFixed(2)}
-                                    </TableCell>
-                                    <TableCell className="py-1 text-right">
-                                      <div className="flex justify-end gap-1">
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-6 w-6"
-                                          onClick={() =>
-                                            editarLoteDeEdicion(idx)
-                                          }
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-6 w-6"
-                                          onClick={() =>
-                                            eliminarLoteDeEdicion(idx)
-                                          }
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                )
-                              )}
-                            </TableBody>
-                          </Table>
-                        )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </section>
-          </div>
+          {editandoProducto && (
+            <ProductoForm
+              datos={editandoProducto}
+              setDatos={setEditandoProducto}
+              diccionarioProveedores={diccionarioProveedores}
+              modoEdicion={true}
+            />
+          )}
 
           <DialogFooter className="pt-2">
             <Button variant="outline" onClick={cerrarEdicion}>
@@ -2233,52 +1522,6 @@ function DensityToggle({
   )
 }
 
-function SectionTitle({ title, small = false }: { title: string; small?: boolean }) {
-  return (
-    <h3
-      className={clsx(
-        "font-semibold tracking-tight flex items-center gap-2",
-        small
-          ? "text-xs uppercase text-muted-foreground"
-          : "text-sm text-slate-100"
-      )}
-    >
-      {title}
-    </h3>
-  )
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-  step,
-  placeholder
-}: {
-  label: string
-  value: any
-  onChange: (v: string) => void
-  type?: string
-  step?: string
-  placeholder?: string
-}) {
-  const auto =
-    placeholder || `Ingresa ${label.replace("*", "").toLowerCase()}`.trim()
-  return (
-    <div className="space-y-2">
-      <Label className="text-xs font-medium">{label}</Label>
-      <Input
-        value={value}
-        type={type}
-        step={step}
-        placeholder={auto}
-        onChange={e => onChange(e.target.value)}
-        className="focus-visible:ring-1 focus-visible:ring-cyan-400/50"
-      />
-    </div>
-  )
-}
 
 function Detail({ label, value }: { label: string; value: any }) {
   return (

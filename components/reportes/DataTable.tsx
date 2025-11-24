@@ -2,6 +2,7 @@
 
 import React, { ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export type Column<T> = {
   key: keyof T | string
@@ -9,6 +10,8 @@ export type Column<T> = {
   align?: "left" | "right" | "center"
   grow?: boolean
   render?: (row: T) => React.ReactNode
+  className?: string
+  fontMono?: boolean
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -16,21 +19,62 @@ export function DataTable<T extends Record<string, any>>({
   data,
   emptyMessage = "Sin datos",
   dense = false,
+  enableSelection = false,
+  selectedKeys = [],
+  onSelectionChange,
+  keyExtractor,
 }: {
   columns: Column<T>[]
   data: T[]
   emptyMessage?: ReactNode
   dense?: boolean
+  enableSelection?: boolean
+  selectedKeys?: (string | number)[]
+  onSelectionChange?: (keys: (string | number)[]) => void
+  keyExtractor?: (item: T) => string | number
 }) {
+  const allSelected = data.length > 0 && data.every((item, idx) => {
+    const key = keyExtractor ? keyExtractor(item) : (item.id ?? idx)
+    return selectedKeys.includes(key)
+  })
+
+  const handleSelectAll = (checked: boolean) => {
+    if (!onSelectionChange) return
+    if (checked) {
+      const allKeys = data.map((item, idx) => keyExtractor ? keyExtractor(item) : (item.id ?? idx))
+      onSelectionChange(allKeys)
+    } else {
+      onSelectionChange([])
+    }
+  }
+
+  const handleSelectRow = (key: string | number, checked: boolean) => {
+    if (!onSelectionChange) return
+    if (checked) {
+      onSelectionChange([...selectedKeys, key])
+    } else {
+      onSelectionChange(selectedKeys.filter((k) => k !== key))
+    }
+  }
+
   return (
     <div className="overflow-x-auto border rounded-md">
       <table className={cn("w-full text-sm", dense && "text-[12.5px]")}>
         <thead>
           <tr className="bg-muted/40">
+            {enableSelection && (
+              <th className="px-3 py-2 w-[40px]">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={(checked) => handleSelectAll(!!checked)}
+                  aria-label="Select all"
+                />
+              </th>
+            )}
             {columns.map((c) => (
               <th
                 key={String(c.key)}
-                className={cn("px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap", alignClass(c.align))}
+                className={cn("px-3 py-2 text-left text-muted-foreground font-medium whitespace-nowrap", alignClass(c.align), c.className)}
               >
                 {c.header}
               </th>
@@ -39,18 +83,31 @@ export function DataTable<T extends Record<string, any>>({
         </thead>
         <tbody>
           {data?.length ? (
-            data.map((row, idx) => (
-              <tr key={idx} className="border-t hover:bg-muted/20">
-                {columns.map((c) => (
-                  <td key={String(c.key)} className={cn("px-3 py-2 whitespace-nowrap", alignClass(c.align), c.grow && "w-full")}>
-                    {c.render ? c.render(row) : String(row[c.key as keyof T] ?? "—")}
-                  </td>
-                ))}
-              </tr>
-            ))
+            data.map((row, idx) => {
+              const key = keyExtractor ? keyExtractor(row) : (row.id ?? idx)
+              const isSelected = selectedKeys.includes(key)
+              return (
+                <tr key={key} className={cn("border-t hover:bg-muted/20", isSelected && "bg-muted/40")}>
+                  {enableSelection && (
+                    <td className="px-3 py-2 w-[40px]">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleSelectRow(key, !!checked)}
+                        aria-label="Select row"
+                      />
+                    </td>
+                  )}
+                  {columns.map((c) => (
+                    <td key={String(c.key)} className={cn("px-3 py-2 whitespace-nowrap", alignClass(c.align), c.grow && "w-full", c.fontMono && "font-mono", c.className)}>
+                      {c.render ? c.render(row) : String(row[c.key as keyof T] ?? "—")}
+                    </td>
+                  ))}
+                </tr>
+              )
+            })
           ) : (
             <tr>
-              <td colSpan={columns.length} className="px-3 py-6 text-center text-muted-foreground">
+              <td colSpan={columns.length + (enableSelection ? 1 : 0)} className="px-3 py-6 text-center text-muted-foreground">
                 {emptyMessage}
               </td>
             </tr>

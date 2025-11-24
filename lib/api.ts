@@ -83,7 +83,7 @@ export async function downloadWithAuth(path: string, filename = "reporte.xlsx", 
   const res = await fetch(apiUrl(path), { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
     const blob = await res.blob(); let msg = `Error ${res.status}`;
-    try { const text = await blob.text(); const json = JSON.parse(text); msg = json.message || text || msg; } catch {}
+    try { const text = await blob.text(); const json = JSON.parse(text); msg = json.message || text || msg; } catch { }
     throw new Error(msg);
   }
   // Notifica al llamador que la respuesta del servidor llegó y la descarga está por comenzar
@@ -171,6 +171,17 @@ export type AddStockPayload = {
   fechaDePedido: string; // "YYYY-MM-DD"
 }
 
+export type EditPedidoPayload = {
+  proveedorId: number;
+  fechaDePedido: string; // "YYYY-MM-DD"
+  stock: {
+    codigoStock: string;
+    cantidadInicial: number;
+    fechaVencimiento: string | null; // "YYYY-MM-DD"
+    precioCompra: number;
+  }
+}
+
 // Para el GET /api/pedidos/reporte
 export type PedidoReportDTO = {
   codigoBarras: string;
@@ -183,6 +194,7 @@ export type PedidoReportDTO = {
   precioCompra: number;
   fvencimiento: string | null;
   fcreacion: string;
+  pedidoId: number;
 }
 /* Utils */
 function toQuery(params?: Record<string, any>) {
@@ -200,7 +212,7 @@ export function getPaymentMix({ from, to }: { from: Date; to: Date }) { return f
 
 /* Inventario (reportes - ADMIN) */
 export type PageResponse<T> = {
-  items(items: any): unknown; content: T[]; totalElements: number; page: number; size: number; totalPages: number 
+  items(items: any): unknown; content: T[]; totalElements: number; page: number; size: number; totalPages: number
 }
 export function getInventoryFull(params: { search?: string; categoria?: string; activo?: boolean; page?: number; size?: number; sort?: string; dir?: "asc" | "desc" }) {
   const { page = 0, size = 50, sort = "nombre", dir = "asc", ...rest } = params || {};
@@ -242,11 +254,46 @@ export function getLotesReport({ fechaInicio, fechaFin }: { fechaInicio: string;
 }
 
 /* Products endpoint - New inventory source */
-export function getProducts(params: { page?: number; size?: number; search?: string; categoria?: string; laboratorio?: string; tipoMedicamento?: string } = {}) {
-  const { page = 0, size = 10, ...rest } = params;
-  return fetchWithAuth(apiUrl("/productos") + toQuery({ page, size, ...rest })) as Promise<PageResponse<ProductDTO>>;
+export function getProducts(params: { page?: number; size?: number; search?: string; q?: string; categoria?: string; laboratorio?: string; tipoMedicamento?: string } = {}) {
+  const { page = 0, size = 10, search, q, categoria, laboratorio, tipoMedicamento, ...rest } = params;
+  // El backend expone /productos esperando los parámetros: q, lab, cat, page, size
+  // Aceptamos tanto `q` como `search` desde el frontend. Priorizamos `q` si se envía.
+  const queryParams: Record<string, any> = { page, size, ...rest };
+
+  const term = q ?? search;
+  if (term !== undefined && term !== null && String(term).trim() !== "") {
+    queryParams.q = String(term).trim();
+  }
+  if (laboratorio !== undefined && laboratorio !== null && String(laboratorio).trim() !== "") {
+    queryParams.lab = laboratorio
+  }
+  if (categoria !== undefined && categoria !== null && String(categoria).trim() !== "") {
+    queryParams.cat = categoria
+  }
+  if (tipoMedicamento !== undefined && tipoMedicamento !== null) {
+    // El backend actual no define tipoMedicamento, pero lo dejamos en la query por compatibilidad
+    queryParams.tipoMedicamento = tipoMedicamento
+  }
+
+  return fetchWithAuth(apiUrl("/productos") + toQuery(queryParams)) as Promise<PageResponse<ProductDTO>>;
 }
 /* Pedidos y Gestión de Stock con Proveedores */
+
+export type AddStockSimplePayload = {
+  codigoStock: string;
+  productoId: number;
+  codigoBarras: string;
+  cantidadUnidades: number;
+  fechaVencimiento: string;
+  precioCompra: number;
+}
+
+export function addStockSimple(payload: AddStockSimplePayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl("/productos/agregar-stock"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, toastFn);
+}
 
 export function addStock(payload: AddStockPayload, toastFn?: ToastFn) {
   return fetchWithAuth(apiUrl("/api/pedidos/agregar-stock"), {
@@ -255,8 +302,51 @@ export function addStock(payload: AddStockPayload, toastFn?: ToastFn) {
   }, toastFn);
 }
 
- //* GET /api/pedidos/reporte
- 
+/* ------------------ Stock (CRUD sin pedidos) ------------------ */
+export type StockUnlinkedPayload = {
+  codigoStock: string;
+  cantidadUnidades: number;
+  precioCompra: number;
+  idProducto: number;
+  fechaVencimiento?: string | null;
+}
+
+/**
+ * POST /api/stock
+ * Crea un lote/stock independiente (no asociado a un pedido)
+ * Espera 201 Created en el backend.
+ */
+export async function createStock(payload: StockUnlinkedPayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl("/api/stock"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, toastFn);
+}
+
+/**
+ * PUT /api/stock/{id}
+ * Edita un stock previamente creado (sin relación a pedidos)
+ * Espera 200 OK en el backend.
+ */
+export async function editStock(id: string | number, payload: StockUnlinkedPayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl(`/api/stock/${id}`), {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  }, toastFn);
+}
+
+/**
+ * DELETE /api/stock/{id}
+ * Elimina un stock independiente. Espera 204 No Content.
+ */
+export async function deleteStock(id: string | number, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl(`/api/stock/${id}`), {
+    method: "DELETE"
+  }, toastFn);
+}
+
+//* GET /api/pedidos/reporte
+
 export function getPedidoReport(params: { proveedorId: number; fechaPedido: string }) {
   // Mapeamos los nombres de parámetros de JS a los que espera tu Backend (snake_case / especificos)
   const queryParams = {
@@ -267,6 +357,28 @@ export function getPedidoReport(params: { proveedorId: number; fechaPedido: stri
 }
 
 /**
+ * DELETE /api/pedidos/{id}
+ * Elimina un pedido por su id. Devuelve lo que retorne fetchWithAuth (normalmente null o mensaje).
+ */
+export function deletePedido(id: string | number, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl(`/api/pedidos/${id}`), {
+    method: "DELETE"
+  }, toastFn)
+}
+
+/**
+ * PUT /api/pedidos/{id}
+ * Edita un pedido existente con los datos provistos en el payload.
+ */
+export function editPedido(id: string | number, payload: EditPedidoPayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl(`/api/pedidos/${id}`), {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  }, toastFn)
+}
+
+
+/**
  * GET /productos/proveedor/{id}
  */
 export function getProductsByProvider(proveedorId: number) {
@@ -274,7 +386,7 @@ export function getProductsByProvider(proveedorId: number) {
 }
 
 /* Ventas / Boletas (accesible a trabajador + admin) */
-export type VentaItem = { codBarras: string; nombre: string; cantidad: number; precio: number }
+export type VentaItem = { id: number; codBarras: string; nombre: string; cantidad: number; precio: number }
 export type BoletaDTO = {
   id: number
   numero: string
@@ -352,5 +464,72 @@ export async function getBoletasPage(params: { page?: number; size?: number; sea
 
 export async function getBoletaById(id: number) {
   return fetchWithAuth(apiUrl(`/api/boletas/${id}`)) as Promise<BoletaDTO>
+}
+
+/* ------------------------- Ventas (POST) ------------------------- */
+export type VentaProductoPayload = {
+  id?: number
+  codBarras?: string
+  nombre?: string
+  cantidad: number
+}
+
+export type MetodoPagoPayload = {
+  nombre: string
+  efectivo: number
+  digital: number
+  efectivoFix: number
+}
+
+export type CrearVentaPayload = {
+  numero?: string
+  dniCliente?: string
+  dniVendedor?: string
+  nombreCliente?: string
+  metodoPago: MetodoPagoPayload
+  productos: VentaProductoPayload[]
+}
+
+/**
+ * POST /api/ventas
+ * Registra una venta (boleta). El backend prioriza `id` dentro de cada producto si está presente,
+ * de lo contrario usa `codBarras`.
+ */
+export async function crearVenta(payload: CrearVentaPayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl("/api/ventas"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, toastFn) as Promise<BoletaDTO>
+}
+
+/* ------------------------- Productos (CRUD mínimo, sin stock) ------------------------- */
+export type ProductoCreatePayload = {
+  codigoBarras?: string
+  nombre: string
+  concentracion?: string | null
+  cantidadMinima?: number | null
+  precioVentaUnd?: number | null
+  laboratorio?: string | null
+  categoria?: string | null
+  cantidadUnidadesBlister?: number | null
+  precioVentaBlister?: number | null
+  principioActivo?: string | null
+  tipoMedicamento?: string | null
+  presentacion?: string | null
+  proveedorIds?: number[]
+}
+
+export async function crearProducto(payload: ProductoCreatePayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl("/productos/nuevo"), {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, toastFn)
+}
+
+export async function actualizarProducto(id: number, payload: ProductoCreatePayload, toastFn?: ToastFn) {
+  return fetchWithAuth(apiUrl(`/productos/${id}`), {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  }, toastFn)
 }
 

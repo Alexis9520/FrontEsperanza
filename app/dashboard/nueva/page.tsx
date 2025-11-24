@@ -49,11 +49,14 @@ import { useToast } from "@/lib/use-toast"
 import { apiUrl } from "@/lib/config"
 import { buildTicketHTML, VentaPreview } from "@/lib/print-utils"
 import { cn } from "@/lib/utils"
+import { crearVenta } from "@/lib/api"
+import type { VentaProductoPayload } from "@/lib/api"
 
 /* -------------------------------------------------- */
 /*                       TIPOS                        */
 /* -------------------------------------------------- */
 interface Producto {
+  id?: number
   codigoBarras: string
   nombre: string
   precioVentaUnd: number
@@ -67,6 +70,7 @@ interface Producto {
   presentacion?: string
 }
 interface ProductoCarrito {
+  id?: number
   codigoBarras: string
   nombre: string
   precioVentaUnd: number
@@ -486,10 +490,11 @@ export default function NuevaVentaPage() {
   // VALIDACIÓN al intentar agregar: código de barras y precios
   const agregarAlCarrito = (producto: Producto, selectionKey: string) => {
     const codigo = (producto.codigoBarras || "").trim()
-    if (!codigo) {
+    // Permitimos agregar si el producto tiene `id` incluso sin código de barras.
+    if (!codigo && (producto.id === undefined || producto.id === null)) {
       toast({
         title: "Producto inválido",
-        description: "No se puede agregar un producto sin código de barras.",
+        description: "El producto debe tener código de barras o un identificador (id).",
         variant: "destructive"
       })
       return
@@ -534,7 +539,9 @@ export default function NuevaVentaPage() {
     }
 
     setCarrito(prev => {
-      const existing = prev.find(p => p.codigoBarras === producto.codigoBarras)
+      const existing = producto.id !== undefined && producto.id !== null
+        ? prev.find(p => p.id === producto.id)
+        : prev.find(p => p.codigoBarras === producto.codigoBarras)
       const precioBlister = producto.precioVentaBlister ?? 0
 
       if (existing) {
@@ -550,23 +557,33 @@ export default function NuevaVentaPage() {
           return prev
         }
         return prev.map(p =>
-          p.codigoBarras === existing.codigoBarras
-            ? {
-                ...p,
-                cantidadBlister: newB,
-                cantidadUnidad: newU,
-                subtotal: precioBlister * newB + precioUnidadFinal * newU
-              }
-            : p
+          existing.id !== undefined && existing.id !== null
+            ? (p.id === existing.id
+                ? {
+                    ...p,
+                    cantidadBlister: newB,
+                    cantidadUnidad: newU,
+                    subtotal: precioBlister * newB + precioUnidadFinal * newU
+                  }
+                : p)
+            : (p.codigoBarras === existing.codigoBarras
+                ? {
+                    ...p,
+                    cantidadBlister: newB,
+                    cantidadUnidad: newU,
+                    subtotal: precioBlister * newB + precioUnidadFinal * newU
+                  }
+                : p)
         )
       }
 
-      return [
+        return [
         ...prev,
         {
+          id: producto.id,
           codigoBarras: producto.codigoBarras,
           nombre: producto.nombre,
-            precioVentaUnd: producto.precioVentaUnd,
+          precioVentaUnd: producto.precioVentaUnd,
           precioVentaBlister: producto.precioVentaBlister,
           cantidadUnidadesBlister: producto.cantidadUnidadesBlister,
           descuento: producto.descuento,
@@ -583,15 +600,21 @@ export default function NuevaVentaPage() {
     setCarrito(prev =>
       prev
         .map(item => {
-          if (item.codigoBarras !== codigoBarras) {
-            return item
+          // identificar por id cuando el identificador pasado es `id:123` o por barcode
+          let match = false
+          if (codigoBarras.startsWith("id:")) {
+            const idNum = Number(codigoBarras.slice(3))
+            match = item.id === idNum
+          } else {
+            match = item.codigoBarras === codigoBarras
           }
+          if (!match) return item
 
-          // VALIDAR código de barras (si se quedó vacío por algún bug)
-          if (!item.codigoBarras || !item.codigoBarras.trim()) {
+          // Si no tiene barcode pero tiene id, lo aceptamos; solo bloqueamos si no tiene ninguno
+          if ((!item.codigoBarras || !item.codigoBarras.trim()) && (item.id === undefined || item.id === null)) {
             toast({
               title: "Código inválido",
-              description: "Este producto no tiene código de barras válido.",
+              description: "Este producto no tiene código de barras ni identificador.",
               variant: "destructive"
             })
             return item
@@ -640,8 +663,16 @@ export default function NuevaVentaPage() {
   }
 
   const eliminarDelCarrito = (codigoBarras: string) => {
-    const eliminado = carrito.find(c => c.codigoBarras === codigoBarras)
-    setCarrito(prev => prev.filter(c => c.codigoBarras !== codigoBarras))
+    // identificador puede ser 'id:123' o barcode
+    let eliminado: ProductoCarrito | undefined
+    if (codigoBarras.startsWith("id:")) {
+      const idNum = Number(codigoBarras.slice(3))
+      eliminado = carrito.find(c => c.id === idNum)
+      setCarrito(prev => prev.filter(c => c.id !== idNum))
+    } else {
+      eliminado = carrito.find(c => c.codigoBarras === codigoBarras)
+      setCarrito(prev => prev.filter(c => c.codigoBarras !== codigoBarras))
+    }
     if (eliminado) {
       toast({
         title: "Producto eliminado",
@@ -661,14 +692,14 @@ export default function NuevaVentaPage() {
 
     // Validación de integridad del carrito antes de enviar al backend
     const productoInvalido = carrito.find(p => {
-      const codigo = (p.codigoBarras || "").trim()
+      const tieneIdent = (p.id !== undefined && p.id !== null) || ((p.codigoBarras || "").trim() !== "")
       const precioUnidadFinal = p.precioVentaUnd - (p.descuento ?? 0)
-      return !codigo || precioUnidadFinal <= 0
+      return !tieneIdent || precioUnidadFinal <= 0
     })
     if (productoInvalido) {
       toast({
         title: "Carrito inválido",
-        description: `El producto "${productoInvalido.nombre}" tiene código vacío o precio <= 0.`,
+        description: `El producto "${productoInvalido.nombre}" tiene código vacío y sin id, o precio <= 0.`,
         variant: "destructive"
       })
       return
@@ -705,39 +736,37 @@ export default function NuevaVentaPage() {
       return
     }
 
+    const productosPayload: VentaProductoPayload[] = carrito.map(item => {
+      const unidadesPorBlister = item.cantidadUnidadesBlister || 0
+      const blisterCount = item.cantidadBlister || 0
+      const unidadCount = item.cantidadUnidad || 0
+      const totalUnits = unidadesPorBlister * blisterCount + unidadCount
+
+      const payload: VentaProductoPayload = { cantidad: totalUnits }
+      if (item.id !== undefined && item.id !== null) payload.id = item.id
+      else payload.codBarras = item.codigoBarras
+      return payload
+    })
+
     const ventaDTO = {
       dniCliente: dniCliente.trim() || "",
       nombreCliente: nombreCliente.trim(),
       dniVendedor: usuarioSesion?.dni || "",
-      productos: carrito.map(item => ({
-        codBarras: item.codigoBarras,
-        cantidad:
-          (item.cantidadUnidadesBlister ?? 0) * item.cantidadBlister +
-          item.cantidadUnidad
-      })),
+      productos: productosPayload,
       metodoPago: {
-        nombre: metodoPago.toUpperCase(),
-
-        efectivo: (metodoPago === "efectivo" || metodoPago === "mixto") ? Number(montoEfectivo) : 0.0,
-
-        digital: metodoPago === "yape" ? total : (metodoPago === "mixto" ? Number(montoYape) : 0),
-
-        efectivoFix: metodoPago === "efectivo" 
-          ? total // Si todo es efectivo, el neto es el total
-          : (metodoPago === "mixto" 
-              ? (total - (Number(montoYape) || 0)) // Si es mixto, el neto es el total menos lo pagado con yape
-              : 0) // Si es yape puro, el neto en efectivo es 0
-      }
+        nombre: metodoPago.toUpperCase(),
+        efectivo: (metodoPago === "efectivo" || metodoPago === "mixto") ? Number(montoEfectivo) : 0.0,
+        digital: metodoPago === "yape" ? Number(montoYape) : (metodoPago === "mixto" ? Number(montoYape) : 0),
+        efectivoFix: metodoPago === "efectivo" 
+          ? total
+          : (metodoPago === "mixto" ? (total - (Number(montoYape) || 0)) : 0)
+      }
     }
-    // --- CÓDIGO DE DEPURACIÓN AÑADIDO ---
+
     console.log("Enviando Venta DTO al Backend:", ventaDTO)
-    // ------------------------------------
 
     try {
-      const resp = await fetchWithAuth(apiUrl("/api/ventas"), {
-        method: "POST",
-        body: JSON.stringify(ventaDTO)
-      })
+      const resp = await crearVenta(ventaDTO, toast)
       if (!resp?.numero) {
         toast({ title: "Error", description: "No se recibió número de boleta", variant: "destructive" })
         return
@@ -1121,7 +1150,12 @@ export default function NuevaVentaPage() {
                                           className="w-14 h-7 text-[11px]"
                                           value={sel.blisters || ""}
                                           onChange={e => {
-                                            const v = Math.max(0, Number(e.target.value))
+                                            let v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                                            const maxB = Math.floor(
+                                              prod.cantidadGeneral /
+                                                (prod.cantidadUnidadesBlister || 1)
+                                            )
+                                            if (v > maxB) v = maxB
                                             setBlisterUnidadSeleccion(prev => ({
                                               ...prev,
                                               [selectionKey]: {
@@ -1149,7 +1183,7 @@ export default function NuevaVentaPage() {
                                           className="w-14 h-7 text-[11px]"
                                           value={sel.unidades || ""}
                                           onChange={e => {
-                                            let v = Math.max(0, Number(e.target.value))
+                                            let v = Math.max(0, Math.floor(Number(e.target.value) || 0))
                                             const maxU =
                                               prod.cantidadUnidadesBlister &&
                                               prod.cantidadUnidadesBlister > 1
@@ -1180,7 +1214,8 @@ export default function NuevaVentaPage() {
                                         className="w-16 h-7 text-[11px]"
                                         value={sel.unidades || ""}
                                         onChange={e => {
-                                          const v = Math.max(0, Number(e.target.value))
+                                          let v = Math.max(0, Math.floor(Number(e.target.value) || 0))
+                                          if (v > prod.cantidadGeneral) v = prod.cantidadGeneral
                                           setBlisterUnidadSeleccion(prev => ({
                                             ...prev,
                                             [selectionKey]: {
@@ -1263,8 +1298,8 @@ export default function NuevaVentaPage() {
                           <TableCell>
                             <QtyAdjust
                               value={item.cantidadBlister}
-                              onDec={() => cambiarCantidadCarrito(item.codigoBarras, "blister", -1)}
-                              onInc={() => cambiarCantidadCarrito(item.codigoBarras, "blister", 1)}
+                              onDec={() => cambiarCantidadCarrito(item.id ? `id:${item.id}` : item.codigoBarras, "blister", -1)}
+                              onInc={() => cambiarCantidadCarrito(item.id ? `id:${item.id}` : item.codigoBarras, "blister", 1)}
                               disabledDec={item.cantidadBlister === 0}
                               suffix={
                                 item.cantidadUnidadesBlister
@@ -1276,8 +1311,8 @@ export default function NuevaVentaPage() {
                           <TableCell>
                             <QtyAdjust
                               value={item.cantidadUnidad}
-                              onDec={() => cambiarCantidadCarrito(item.codigoBarras, "unidad", -1)}
-                              onInc={() => cambiarCantidadCarrito(item.codigoBarras, "unidad", 1)}
+                              onDec={() => cambiarCantidadCarrito(item.id ? `id:${item.id}` : item.codigoBarras, "unidad", -1)}
+                              onInc={() => cambiarCantidadCarrito(item.id ? `id:${item.id}` : item.codigoBarras, "unidad", 1)}
                               disabledDec={item.cantidadUnidad === 0}
                             />
                           </TableCell>
@@ -1288,7 +1323,7 @@ export default function NuevaVentaPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => eliminarDelCarrito(item.codigoBarras)}
+                              onClick={() => eliminarDelCarrito(item.id ? `id:${item.id}` : item.codigoBarras)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1394,13 +1429,13 @@ export default function NuevaVentaPage() {
                 <div className="space-y-2">
                   <Label htmlFor="monto-efectivo">Monto efectivo</Label>
                   <Input
-                    id="monto-efectivo"
-                    type="number"
-                    step="0.01"
-                    value={montoEfectivo}
-                    onChange={e => setMontoEfectivo(e.target.value)}
-                    placeholder="0.00"
-                  />
+                        id="monto-efectivo"
+                        type="number"
+                        step="0.1"
+                        value={montoEfectivo}
+                        onChange={e => setMontoEfectivo(clampDecimalInput(e.target.value, 1))}
+                        placeholder="0.0"
+                      />
                   {faltante > 0 && (
                     <div className="text-xs text-red-600">
                       Faltan S/ {faltante.toFixed(2)}
@@ -1412,13 +1447,13 @@ export default function NuevaVentaPage() {
                 <div className="space-y-2">
                   <Label htmlFor="monto-yape">Monto Yape</Label>
                   <Input
-                    id="monto-yape"
-                    type="number"
-                    step="0.01"
-                    value={montoYape}
-                    onChange={e => setMontoYape(e.target.value)}
-                    placeholder="0.00"
-                  />
+                        id="monto-yape"
+                        type="number"
+                        step="0.1"
+                        value={montoYape}
+                        onChange={e => setMontoYape(clampDecimalInput(e.target.value, 1))}
+                        placeholder="0.0"
+                      />
                   {faltante > 0 && (
                     <div className="text-xs text-red-600">
                       Faltan S/ {faltante.toFixed(2)}
@@ -1431,24 +1466,24 @@ export default function NuevaVentaPage() {
                   <div className="space-y-2">
                     <Label htmlFor="monto-efectivo-mixto">Efectivo</Label>
                     <Input
-                      id="monto-efectivo-mixto"
-                      type="number"
-                      step="0.01"
-                      value={montoEfectivo}
-                      onChange={e => setMontoEfectivo(e.target.value)}
-                      placeholder="0.00"
-                    />
+                          id="monto-efectivo-mixto"
+                          type="number"
+                          step="0.1"
+                          value={montoEfectivo}
+                          onChange={e => setMontoEfectivo(clampDecimalInput(e.target.value, 1))}
+                          placeholder="0.0"
+                        />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="monto-yape-mixto">Yape</Label>
                     <Input
-                      id="monto-yape-mixto"
-                      type="number"
-                      step="0.01"
-                      value={montoYape}
-                      onChange={e => setMontoYape(e.target.value)}
-                      placeholder="0.00"
-                    />
+                          id="monto-yape-mixto"
+                          type="number"
+                          step="0.1"
+                          value={montoYape}
+                          onChange={e => setMontoYape(clampDecimalInput(e.target.value, 1))}
+                          placeholder="0.0"
+                        />
                   </div>
                   {faltante > 0 && (
                     <div className="md:col-span-2 text-xs text-red-600">
@@ -1576,4 +1611,25 @@ function BackgroundFX() {
       <div className="absolute -bottom-48 -left-40 h-[560px] w-[560px] rounded-full bg-secondary/25 blur-3xl opacity-30 animate-pulse" />
     </div>
   )
+}
+
+/* -------------------------------------------------- */
+/*         Helper: limitar decimales en inputs        */
+/* -------------------------------------------------- */
+function clampDecimalInput(input: string, maxDecimals = 1) {
+  if (!input) return ""
+  let v = input.replace(/,/g, '.')
+  // keep only digits and dot
+  v = v.replace(/[^0-9.]/g, '')
+  // if multiple dots, keep first and join the rest
+  const parts = v.split('.')
+  if (parts.length > 2) {
+    v = parts[0] + '.' + parts.slice(1).join('')
+  }
+  if (v === '.') return '0.'
+  const dotIndex = v.indexOf('.')
+  if (dotIndex === -1) return v
+  const intPart = v.slice(0, dotIndex) || '0'
+  const frac = v.slice(dotIndex + 1).slice(0, maxDecimals)
+  return frac.length > 0 ? `${intPart}.${frac}` : `${intPart}.`
 }

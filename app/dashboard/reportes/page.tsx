@@ -1,8 +1,9 @@
 "use client"
 import autoTable from "jspdf-autotable"
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input" 
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -247,7 +248,7 @@ function ExplainerModal({
               )}
             </ul>
             <div className="text-xs text-muted-foreground pt-2">Suma total: <span className="font-medium text-slate-200">{fmtMoney(sumMix)}</span></div>
-            
+
           </div>
         </div>
 
@@ -257,7 +258,7 @@ function ExplainerModal({
           </button>
         </div>
       </div>
-      
+
     </div>
   )
 }
@@ -284,6 +285,8 @@ export default function ReportesPage() {
   const [fechaPedido, setFechaPedido] = useState<string>(new Date().toISOString().split('T')[0]) // Hoy YYYY-MM-DD
   const [pedidosData, setPedidosData] = useState<PedidoReportDTO[]>([])
   const [loadingPedidos, setLoadingPedidos] = useState(false)
+  const [selectedKeys, setSelectedKeys] = useState<(string | number)[]>([])
+  const router = useRouter()
 
   // Valores de caja (acepta DTO desagregado o antiguo)
   const ingresosVentas = toNumber(caja?.ingresosVentas ?? caja?.ingresos ?? caja?.ventas ?? 0)
@@ -352,10 +355,10 @@ export default function ReportesPage() {
         // Asumimos que backend maneja proveedorId=0 como "todos" o "sin filtro de proveedor"
         // si el endpoint lo permite, sino traerá array vacío.
         const pId = selectedProvider ? parseInt(selectedProvider) : 0
-        
+
         const data = await getPedidoReport({
-            proveedorId: pId,
-            fechaPedido: fechaPedido
+          proveedorId: pId,
+          fechaPedido: fechaPedido
         })
         setPedidosData(Array.isArray(data) ? data : [])
       } catch (e) {
@@ -368,6 +371,10 @@ export default function ReportesPage() {
     fetchPedidos()
   }, [tab, selectedProvider, fechaPedido])
 
+  // Reset selection when data changes
+  useEffect(() => {
+    setSelectedKeys([])
+  }, [pedidosData])
 
   const salesByDayCols = useMemo<Column<SalesByDay>[]>(() => [
     { key: "fecha", header: "Fecha" },
@@ -387,12 +394,14 @@ export default function ReportesPage() {
   // Columnas para la nueva tabla PEDIDOS
   const pedidosCols = useMemo<Column<PedidoReportDTO>[]>(() => [
     { key: "codigoBarras", header: "Cód. Barras" },
-    { key: "producto", header: "Producto", grow: true, render: (r) => (
+    {
+      key: "producto", header: "Producto", grow: true, render: (r) => (
         <div>
-            <div className="font-medium">{r.producto}</div>
-            <div className="text-xs text-muted-foreground">{r.concentracion} {r.presentacion}</div>
+          <div className="font-medium">{r.producto}</div>
+          <div className="text-xs text-muted-foreground">{r.concentracion} {r.presentacion}</div>
         </div>
-    )},
+      )
+    },
     { key: "codigoStock", header: "Lote (Stock)", fontMono: true },
     { key: "cantUnidades", header: "Cant. Actual", align: "right" },
     { key: "cantInicial", header: "Cant. Inicial", align: "right", className: "text-muted-foreground" },
@@ -410,11 +419,11 @@ export default function ReportesPage() {
     const fontSizeTitle = 14
     const fontSizeSub = 10
     const fontSizeText = 9
-    
+
     // Encontrar datos del proveedor seleccionado para el encabezado
     const provObj = proveedores.find(p => p.id.toString() === selectedProvider)
-    const textoProveedor = provObj 
-      ? `${provObj.razonComercial} ${provObj.ruc ? `- RUC: ${provObj.ruc}` : ""}` 
+    const textoProveedor = provObj
+      ? `${provObj.razonComercial} ${provObj.ruc ? `- RUC: ${provObj.ruc}` : ""}`
       : "_____________________________________" // Línea vacía si no hay proveedor
 
     // Formatear fecha (YYYY-MM-DD a DD/MM/YYYY)
@@ -435,13 +444,13 @@ export default function ReportesPage() {
     // Datos del encabezado (Líneas de inputs)
     doc.setFontSize(fontSizeSub)
     doc.setFont("helvetica", "normal")
-    
+
     let startY = 35
     // Fecha
     doc.text(`Fecha De Recepción:  ${fechaFormateada}`, 15, startY)
     // Proveedor
     doc.text(`Proveedor:  ${textoProveedor}`, 100, startY)
-    
+
     startY += 8
     // Documento Referencia y Factura (Vacíos para llenar manual como en la foto)
     doc.text("Documento De Referencia: ______________________________", 15, startY)
@@ -467,7 +476,12 @@ export default function ReportesPage() {
     ]
 
     // Mapeo de datos (Lo que pediste + vacíos)
-    const tableRows = pedidosData.map((item, index) => [
+    // Filtrar si hay seleccionados
+    const dataToExport = selectedKeys.length > 0
+      ? pedidosData.filter(item => selectedKeys.includes(item.codigoStock))
+      : pedidosData
+
+    const tableRows = dataToExport.map((item, index) => [
       index + 1,
       item.producto || "",                      // Descripción
       item.concentracion || "",                 // Concentración
@@ -564,13 +578,13 @@ export default function ReportesPage() {
 
         {/* Filtro global de fechas (solo visible en tabs que no son pedidos, o podrias ocultarlo si estás en pedidos) */}
         {tab !== "pedidos" && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <DateRangePicker from={from} to={to} onChange={(f, t) => { setFrom(f); setTo(t) }} />
             <Button variant="secondary" className="gap-2" disabled>
-                <Calendar className="w-4 h-4" />
-                Filtros
+              <Calendar className="w-4 h-4" />
+              Filtros
             </Button>
-            </div>
+          </div>
         )}
       </div>
 
@@ -579,7 +593,7 @@ export default function ReportesPage() {
           <TabsList className="bg-muted/50 backdrop-blur flex-wrap p-1 rounded-lg gap-2">
             {/*<TabsTrigger value="resumen">Resumen</TabsTrigger>*/}
             {/*<TabsTrigger value="ventas">Ventas</TabsTrigger>*/}
-            <TabsTrigger value="pedidos" className="gap-2"><Truck className="w-4 h-4"/> Pedidos</TabsTrigger>
+            <TabsTrigger value="pedidos" className="gap-2"><Truck className="w-4 h-4" /> Pedidos</TabsTrigger>
             <TabsTrigger value="inventario">Inventario</TabsTrigger>
             {/*<TabsTrigger value="lotes">Lotes (Global)</TabsTrigger>*/}
             <TabsTrigger value="clientes">Clientes</TabsTrigger>
@@ -588,16 +602,16 @@ export default function ReportesPage() {
           <Dialog>
             <DialogTrigger asChild>
               <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setHelpOpen(true)}
-                  className="gap-2 text-muted-foreground hover:text-white"
-                >
-                  <Info className="w-4 h-4" />
-                  ¿Qué es esto?
-                </Button>
+                size="sm"
+                variant="ghost"
+                onClick={() => setHelpOpen(true)}
+                className="gap-2 text-muted-foreground hover:text-white"
+              >
+                <Info className="w-4 h-4" />
+                ¿Qué es esto?
+              </Button>
             </DialogTrigger>
-            
+
           </Dialog>
         </div>
 
@@ -618,7 +632,7 @@ export default function ReportesPage() {
                   <CardDescription>Desglose: ingresos manuales, ventas en efectivo y egresos</CardDescription>
                 </div>
                 {/* Botón de ayuda ubicado en el header, visible y accesible */}
-                
+
               </CardHeader>
 
               <CardContent className="p-4 space-y-4">
@@ -684,7 +698,7 @@ export default function ReportesPage() {
             </Card>
           </div>
         </TabsContent>
-{/* --- TAB VENTAS --- */}
+        {/* --- TAB VENTAS --- */}
         <TabsContent value="ventas">
           <Card className="mt-6">
             <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -717,77 +731,94 @@ export default function ReportesPage() {
         <TabsContent value="pedidos">
           <Card className="mt-6 border-emerald-500/20">
             <CardHeader>
-                <div className="flex flex-col md:flex-row justify-between gap-4">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <Truck className="w-5 h-5 text-emerald-400" />
-                            Reporte de Pedidos
-                        </CardTitle>
-                        <CardDescription>
-                            Consulta los productos ingresados filtrando por proveedor y fecha de pedido.
-                        </CardDescription>
-                    </div>
-                    
-                    {/* Filtros y Botón Exportar */}
-                    <div className="flex flex-col xl:flex-row gap-3 items-end">
-                        <div className="flex flex-col gap-1.5 w-full sm:w-40">
-                            <Label htmlFor="fechaPedido" className="text-xs text-muted-foreground">Fecha de Pedido</Label>
-                            <Input 
-                                id="fechaPedido"
-                                type="date" 
-                                value={fechaPedido} 
-                                onChange={(e) => setFechaPedido(e.target.value)}
-                                className="h-9 bg-background/50"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1.5 w-full sm:w-64">
-                            <Label htmlFor="proveedorSelect" className="text-xs text-muted-foreground">Proveedor</Label>
-                            <select
-                                id="proveedorSelect"
-                                className="flex h-9 w-full rounded-md border border-input bg-background/50 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                                value={selectedProvider}
-                                onChange={(e) => setSelectedProvider(e.target.value)}
-                            >
-                                <option value="">-- Todos / Sin filtro --</option>
-                                {proveedores.map((prov) => (
-                                    <option key={prov.id} value={prov.id}>
-                                        {prov.razonComercial} ({prov.ruc})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        
-                        {/* BOTÓN PDF */}
-                        <Button 
-                            variant="outline" 
-                            className="gap-2 border-red-200 hover:bg-red-50 text-red-700 hover:text-red-800"
-                            onClick={generarPDFPedido}
-                            disabled={pedidosData.length === 0} // Deshabilitar si no hay datos
-                        >
-                            <FileText className="w-4 h-4" />
-                            Exportar PDF
-                        </Button>
-                    </div>
+              <div className="flex flex-col md:flex-row justify-between gap-4">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-emerald-400" />
+                    Reporte de Pedidos
+                  </CardTitle>
+                  <CardDescription>
+                    Consulta los productos ingresados filtrando por proveedor y fecha de pedido.
+                  </CardDescription>
                 </div>
+
+                {/* Filtros y Botón Exportar */}
+                <div className="flex flex-col xl:flex-row gap-3 items-end">
+                  <div className="flex flex-col gap-1.5 w-full sm:w-40">
+                    <Label htmlFor="fechaPedido" className="text-xs text-muted-foreground">Fecha de Pedido</Label>
+                    <Input
+                      id="fechaPedido"
+                      type="date"
+                      value={fechaPedido}
+                      onChange={(e) => setFechaPedido(e.target.value)}
+                      className="h-9 bg-background/50"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5 w-full sm:w-64">
+                    <Label htmlFor="proveedorSelect" className="text-xs text-muted-foreground">Proveedor</Label>
+                    <select
+                      id="proveedorSelect"
+                      className="flex h-9 w-full rounded-md border border-input bg-background/50 px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                      value={selectedProvider}
+                      onChange={(e) => setSelectedProvider(e.target.value)}
+                    >
+                      <option value="">-- Todos / Sin filtro --</option>
+                      {proveedores.map((prov) => (
+                        <option key={prov.id} value={prov.id}>
+                          {prov.razonComercial} ({prov.ruc})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* BOTÓN PDF */}
+                  <Button
+                    variant="outline"
+                    className="gap-2 border-red-200 hover:bg-red-50 text-red-700 hover:text-red-800"
+                    onClick={generarPDFPedido}
+                    disabled={pedidosData.length === 0} // Deshabilitar si no hay datos
+                  >
+                    <FileText className="w-4 h-4" />
+                    Exportar PDF {selectedKeys.length > 0 && `(${selectedKeys.length})`}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-2"
+                    onClick={() => {
+                      const prov = selectedProvider ? encodeURIComponent(selectedProvider) : ""
+                      const fecha = encodeURIComponent(fechaPedido)
+                      router.push(`/dashboard/proveedores?view=pedidos&fecha=${fecha}&proveedor=${prov}`)
+                    }}
+                    disabled={pedidosData.length === 0}
+                  >
+                    Más acciones
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-                {loadingPedidos ? (
-                    <div className="flex flex-col items-center justify-center py-10 space-y-3 text-muted-foreground">
-                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
-                        <p className="text-sm">Cargando reporte de pedidos...</p>
+              {loadingPedidos ? (
+                <div className="flex flex-col items-center justify-center py-10 space-y-3 text-muted-foreground">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-500" />
+                  <p className="text-sm">Cargando reporte de pedidos...</p>
+                </div>
+              ) : (
+                <DataTable
+                  columns={pedidosCols}
+                  data={pedidosData}
+                  enableSelection={true}
+                  selectedKeys={selectedKeys}
+                  onSelectionChange={setSelectedKeys}
+                  keyExtractor={(item) => item.codigoStock}
+                  emptyMessage={
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Search className="w-8 h-8 opacity-20" />
+                      <p>No se encontraron registros para la fecha {fechaPedido} {selectedProvider ? "y el proveedor seleccionado" : ""}.</p>
                     </div>
-                ) : (
-                    <DataTable 
-                        columns={pedidosCols} 
-                        data={pedidosData} 
-                        emptyMessage={
-                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                <Search className="w-8 h-8 opacity-20" />
-                                <p>No se encontraron registros para la fecha {fechaPedido} {selectedProvider ? "y el proveedor seleccionado" : ""}.</p>
-                            </div>
-                        }
-                    />
-                )}
+                  }
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -808,7 +839,7 @@ export default function ReportesPage() {
             </CardContent>
           </Card>
         </TabsContent>
-                {/* --- TAB LOTES --- */}
+        {/* --- TAB LOTES --- */}
         <TabsContent value="lotes">
           <Card className="mt-6">
             <CardHeader>
@@ -823,7 +854,7 @@ export default function ReportesPage() {
             </CardContent>
           </Card>
         </TabsContent>
-                {/* --- TAB CLIENTES --- */}
+        {/* --- TAB CLIENTES --- */}
         <TabsContent value="clientes">
           <Card className="mt-6">
             <CardHeader>

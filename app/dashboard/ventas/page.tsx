@@ -50,27 +50,12 @@ import autoTable from "jspdf-autotable"
 
 // API (asegúrate de tener estas funciones exportadas desde "@/lib/api")
 import { getBoletasPage, getBoletaById } from "@/lib/api"
+import type { VentaItem, BoletaDTO } from "@/lib/api"
 
 /* ------------------------------ Tipos ------------------------------ */
-type ProductoVendido = {
-  codBarras: string
-  nombre: string
-  cantidad: number
-  precio: string | number
-}
+type ProductoVendido = VentaItem
 
-type Boleta = {
-  id: number
-  numero: string
-  fecha: string
-  cliente: string
-  metodoPago?: string
-  total?: string | number
-  totalCompra?: string | number
-  vuelto?: string | number
-  usuario?: string
-  productos?: ProductoVendido[]
-}
+type Boleta = BoletaDTO
 
 type Rango = { from: Date | undefined; to: Date | undefined }
 
@@ -266,7 +251,7 @@ export default function VentasPage() {
     downloadCSV("boletas.csv", rows)
   }
 
-  const metodoBadgeVariant = (met?: string) => {
+  const metodoBadgeVariant = (met?: string | null) => {
     const m = (met || "").toLowerCase()
     if (m === "efectivo") return "default"
     if (["yape", "plin", "tarjeta", "pos", "mixto"].includes(m)) return "secondary"
@@ -283,18 +268,27 @@ export default function VentasPage() {
     // Lazy-load de productos si están vacíos
     if (!b.productos || b.productos.length === 0) {
       try {
-        const full = await getBoletaById(b.id)
+        const full = (await getBoletaById(b.id)) as BoletaDTO
+        // Some backends return products under `productos`, others under `detalles`.
+        const rawDetails: unknown = (full as any).productos ?? (full as any).detalles ?? []
+        const detailsArr: unknown[] = Array.isArray(rawDetails) ? (rawDetails as unknown[]) : []
+        const detalles: VentaItem[] = detailsArr.map(p => {
+          const obj: any = p || {}
+          return {
+            id: typeof obj.id === "number" ? obj.id : obj.id ? Number(obj.id) : undefined,
+            codBarras: obj.codBarras ?? obj.codigoBarras ?? "",
+            nombre: obj.nombre ?? "",
+            cantidad: Number(obj.cantidad ?? 0),
+            precio: Number(obj.precio ?? obj.precioUnitario ?? 0)
+          }
+        })
+
         setBoletas(prev =>
           prev.map(x =>
             x.id === b.id
               ? {
                   ...x,
-                  productos: (full.productos ?? (full as any).detalles ?? []).map((p: any) => ({
-                    codBarras: p.codBarras ?? p.codigoBarras ?? "",
-                    nombre: p.nombre ?? "",
-                    cantidad: p.cantidad ?? 0,
-                    precio: p.precio ?? p.precioUnitario ?? 0
-                  })),
+                  productos: detalles,
                   totalCompra: (full as any).totalCompra ?? x.totalCompra,
                   vuelto: (full as any).vuelto ?? x.vuelto
                 }
