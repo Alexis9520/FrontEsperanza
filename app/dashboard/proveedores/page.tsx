@@ -79,13 +79,9 @@ type Proveedor = {
 export default function ProveedoresPage() {
   const { toast } = useToast()
 
-  const searchParams = useSearchParams()
-
-  useEffect(() => {
-    if (!searchParams) return
-    const v = searchParams.get('view')
-    if (v === 'pedidos') setActiveView('pedidos')
-  }, [searchParams])
+  // Note: useSearchParams is a client hook that must be used inside a
+  // component wrapped by a Suspense boundary when the parent may be
+  // pre-rendered. We'll use small client-only helpers below.
 
   const [activeView, setActiveView] = useState<'proveedores' | 'pedidos'>('proveedores')
 
@@ -420,6 +416,24 @@ export default function ProveedoresPage() {
   /* =========================================================
      RENDER
   ========================================================= */
+  function PedidosWrapper() {
+    // Client-only wrapper to safely call useSearchParams inside Suspense
+    const sp = useSearchParams()
+    return (
+      <PedidosTablex
+        initialProviderId={sp?.get('proveedor') ?? undefined}
+        initialFecha={sp?.get('fecha') ?? undefined}
+      />
+    )
+  }
+
+  function SearchParamsListener({ onChange }: { onChange: (sp: URLSearchParams | null) => void }) {
+    const sp = useSearchParams()
+    useEffect(() => {
+      onChange(sp)
+    }, [sp, onChange])
+    return null
+  }
   return (
     <div className="relative flex flex-col gap-8 pb-20">
       {/* Fondo */}
@@ -564,6 +578,15 @@ export default function ProveedoresPage() {
         />
       </div>
 
+      {/* Listen to search params in a Suspense-wrapped client component */}
+      <React.Suspense fallback={null}>
+        <SearchParamsListener onChange={(sp) => {
+          if (!sp) return
+          const v = sp.get('view')
+          if (v === 'pedidos') setActiveView('pedidos')
+        }} />
+      </React.Suspense>
+
       {activeView === 'proveedores' ? (
       <Card className="relative overflow-hidden border-border/60">
         <CardHeader className="pb-3">
@@ -690,10 +713,9 @@ export default function ProveedoresPage() {
         </CardContent>
       </Card>
       ) : (
-        <PedidosTablex
-          initialProviderId={searchParams?.get('proveedor') ?? undefined}
-          initialFecha={searchParams?.get('fecha') ?? undefined}
-        />
+        <React.Suspense fallback={<div className="py-6 text-center text-muted-foreground">Cargando pedidos...</div>}>
+          <PedidosWrapper />
+        </React.Suspense>
       )}
       {/* ==========================================
           DIALOG: NUEVO PEDIDO (STOCK)
