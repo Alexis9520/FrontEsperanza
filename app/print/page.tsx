@@ -245,32 +245,27 @@ export default function PrintPage() {
   }
 
   return (
-    <html>
-      <head>
-        <meta charSet="utf-8" />
-        <title>Vista previa ticket</title>
-        {baseCss && (
-          <style id="baseTicketCss" dangerouslySetInnerHTML={{ __html: baseCss }} />
+    <>
+      <title>Vista previa ticket</title>
+      {baseCss && (
+        <style id="baseTicketCss" dangerouslySetInnerHTML={{ __html: baseCss }} />
+      )}
+      {dynamicCss && (
+        <style id="dynamicPageSize" dangerouslySetInnerHTML={{ __html: dynamicCss }} />
+      )}
+      <div id="print-root">
+        {job ? (
+          <div
+            className="ticket"
+            dangerouslySetInnerHTML={{ __html: job.html }}
+          />
+        ) : (
+          <div style={{ padding: 16, fontFamily: 'system-ui, Arial, sans-serif' }}>
+            No hay un ticket en localStorage (ticket_preview_job).
+          </div>
         )}
-        {dynamicCss && (
-          <style id="dynamicPageSize" dangerouslySetInnerHTML={{ __html: dynamicCss }} />
-        )}
-      </head>
-      <body>
-        <div id="print-root">
-          {job ? (
-            <div
-              className="ticket"
-              dangerouslySetInnerHTML={{ __html: job.html }}
-            />
-          ) : (
-            <div style={{ padding: 16, fontFamily: 'system-ui, Arial, sans-serif' }}>
-              No hay un ticket en localStorage (ticket_preview_job).
-            </div>
-          )}
-        </div>
-        <DebugPanel />
-      </body>
-    </html>
+      </div>
+      <DebugPanel />
+    </>
   )
 }

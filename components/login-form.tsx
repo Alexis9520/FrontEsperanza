@@ -148,12 +148,12 @@ export default function LoginForm() {
 
               <div className="relative z-10 w-full max-w-xl">
                 <BrandHeaderLeft compactOnMobile />
-                <h1 className="mt-8 text-[2.35rem] font-bold leading-[1.05] tracking-tight sm:text-[2.9rem] md:text-[3.2rem] lg:text-[3.6rem] xl:text-[4.25rem]">
-                  <span className="bg-gradient-to-r from-white via-fuchsia-200 to-cyan-200 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
+                <h1 className="mt-10 text-[2.5rem] font-bold leading-[1.05] tracking-tight sm:text-[3rem] md:text-[3.5rem] lg:text-[4rem] xl:text-[4.5rem]">
+                  <span className="bg-gradient-to-r from-white via-slate-200 to-slate-300 bg-clip-text text-transparent">
                     Bienvenido
                   </span>
                 </h1>
-                <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-slate-300/90 sm:text-sm md:text-[15px]">
+                <p className="mt-5 max-w-md text-[13.5px] leading-relaxed text-slate-400 sm:text-sm md:text-[15px]">
                   
                 </p>
                 <div className="mt-6">
@@ -183,7 +183,7 @@ export default function LoginForm() {
         </div>
       </div>
 
-      {/* Reset body para evitar marco en claro */}
+      {/* Reset body para tema oscuro consistente */}
       <style jsx global>{`
         html, body, #__next {
           height: 100%;
@@ -192,7 +192,7 @@ export default function LoginForm() {
         body {
           margin: 0;
           padding: 0;
-          background: #130B2A;
+          background: #0f172a;
           overscroll-behavior: none;
           -webkit-tap-highlight-color: transparent;
         }
@@ -203,40 +203,38 @@ export default function LoginForm() {
 
 /* =============== SUBCOMPONENTES UI =============== */
 
-/* Fondo general (sin líneas) */
+/* Fondo general - diseño sutil y elegante */
 function BackgroundBlobs() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-20">
-      {/* Base soft radial blobs */}
-      <div className="absolute -left-40 top-0 h-[75vmax] w-[75vmax] rounded-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.33),transparent_72%)] blur-[150px]" />
-      <div className="absolute bottom-[-25%] right-[-25%] h-[65vmax] w-[65vmax] rounded-full bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.33),transparent_70%)] blur-[150px]" />
+      {/* Base gradient - muy sutil */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
+      
+      {/* Blob primario - esquina superior izquierda */}
+      <div className="absolute -left-32 -top-32 h-[50vmax] w-[50vmax] rounded-full bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.15),transparent_60%)] blur-[120px]" />
+      
+      {/* Blob secundario - esquina inferior derecha */}
+      <div className="absolute -bottom-32 -right-32 h-[45vmax] w-[45vmax] rounded-full bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.12),transparent_60%)] blur-[120px]" />
+      
+      {/* Acento sutil central */}
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[40vmax] w-[60vmax] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.08),transparent_50%)] blur-[100px]" />
 
-      {/* Animated slow gradient overlay (modern subtle motion) */}
-      <div
-        className="absolute inset-0 opacity-60 mix-blend-overlay"
-        style={{
-          background: 'linear-gradient(120deg, rgba(168,85,247,0.12), rgba(236,72,153,0.08), rgba(14,165,233,0.12))',
-          backgroundSize: '300% 300%'
-        }}
-      />
-
-      {/* Floating micro-particles removed animation for performance (static background) */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -left-10 -top-10 w-[140%] h-[140%] bg-[radial-gradient(circle,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:18px_18px] opacity-40" />
-      </div>
+      {/* Grid sutil */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:64px_64px] opacity-50" />
+      
+      {/* Overlay de ruido sutil */}
+      <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
     </div>
   )
 }
 
-/* Nuevo fondo para bienvenida SIN borde rectangular:
-   - Se extiende fuera del contenedor (inset-[-40%]) y se aplica máscara radial */
+/* Fondo sutil para la sección de bienvenida */
 function AmbientWelcomeBackground() {
   return (
     <div className="pointer-events-none absolute inset-0 -z-10 overflow-visible">
-      {/* Layered floating blobs animation (different style): multiple blobs drifting with slight scale/opacity changes */}
-  <div className="absolute -left-20 -top-10 h-[58vmax] w-[58vmax] rounded-full blur-[110px] opacity-70 bg-[radial-gradient(circle_at_20%_30%,rgba(99,102,241,0.38),transparent_60%)]" />
-  <div className="absolute -right-28 top-6 h-[48vmax] w-[48vmax] rounded-full blur-[90px] opacity-65 bg-[radial-gradient(circle_at_80%_70%,rgba(236,72,153,0.34),transparent_60%)]" />
-  <div className="absolute left-1/3 -bottom-12 h-[46vmax] w-[46vmax] rounded-full blur-[100px] opacity-60 bg-[radial-gradient(circle_at_50%_50%,rgba(14,165,233,0.32),transparent_60%)]" />
+      {/* Glow sutil detrás del contenido */}
+      <div className="absolute left-1/4 top-1/3 h-[30vmax] w-[30vmax] rounded-full blur-[80px] opacity-40 bg-[radial-gradient(circle_at_center,rgba(99,102,241,0.2),transparent_60%)]" />
+      <div className="absolute right-1/4 bottom-1/3 h-[25vmax] w-[25vmax] rounded-full blur-[70px] opacity-35 bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.18),transparent_60%)]" />
     </div>
   )
 }
@@ -244,16 +242,16 @@ function AmbientWelcomeBackground() {
 function BrandHeaderLeft({ compactOnMobile }: { compactOnMobile?: boolean }) {
   return (
     <div className={`flex items-center gap-4 ${compactOnMobile ? "sm:gap-4" : ""}`}>
-    <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl">
-      <img src="/icono-sidebar.png" alt="Icono Sidebar" className="h-12 w-12" />
+      <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.05] backdrop-blur-sm border border-white/[0.08] shadow-lg shadow-black/20">
+        <img src="/icono-sidebar.png" alt="Icono Sidebar" className="h-10 w-10" />
+      </div>
+      <div className="leading-tight">
+        <p className="text-lg sm:text-xl font-semibold text-white">Botica Nueva Esperanza</p>
+        <p className="text-[10px] font-medium uppercase tracking-widest text-slate-400">
+          Salud & Economía
+        </p>
+      </div>
     </div>
-    <div className="leading-tight">
-      <p className="text-lg sm:text-xl font-semibold text-white">Botica Nueva Esperanza</p>
-      <p className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wider text-slate-300">
-        Salud & Economía
-      </p>
-    </div>
-  </div>
   )
 }
 
@@ -285,13 +283,18 @@ function FormCard(props: SharedProps) {
   } = props
 
   return (
-    <Card className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl shadow-[0_8px_40px_-14px_rgba(0,0,0,0.65)] sm:shadow-[0_8px_42px_-12px_rgba(0,0,0,0.65)]">
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(255,255,255,0.17)_0%,rgba(255,255,255,0)_45%)]" />
-      <CardHeader className="space-y-2 pb-4 text-center">
-        <CardTitle className="text-[20px] sm:text-[22px] font-semibold tracking-tight text-white">
+    <Card className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-slate-900/60 backdrop-blur-2xl shadow-2xl shadow-black/20">
+      {/* Borde superior luminoso sutil */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      
+      {/* Reflejo interno sutil */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.03] via-transparent to-transparent" />
+      
+      <CardHeader className="space-y-1.5 pb-4 text-center">
+        <CardTitle className="text-xl font-semibold tracking-tight text-white">
           Iniciar sesión
         </CardTitle>
-        <CardDescription className="text-xs text-slate-300/80">
+        <CardDescription className="text-[13px] text-slate-400">
           Accede a tu panel de control
         </CardDescription>
       </CardHeader>
@@ -321,7 +324,7 @@ function FormCard(props: SharedProps) {
         </Form>
       </CardContent>
       <CardFooter className="flex flex-col gap-2 pb-6 pt-2">
-        <p className="text-center text-[10px] font-medium tracking-wide text-slate-300/70">
+        <p className="text-center text-[10px] font-medium tracking-wide text-slate-500">
           
         </p>
       </CardFooter>
@@ -337,12 +340,12 @@ function DNIField({ form }: { form: ReturnType<typeof useForm<FormValues>> }) {
       name="dni"
       render={({ field }) => (
         <FormItem>
-          <div className="mb-1 flex items-center justify-between">
-            <FormLabel className="text-[11px] font-medium uppercase tracking-wide text-slate-200">
+          <div className="mb-1.5 flex items-center justify-between">
+            <FormLabel className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
               DNI
             </FormLabel>
             {form.formState.errors.dni && (
-              <span className="text-[10px] font-medium text-rose-300">
+              <span className="text-[10px] font-medium text-rose-400">
                 {form.formState.errors.dni.message}
               </span>
             )}
@@ -359,12 +362,11 @@ function DNIField({ form }: { form: ReturnType<typeof useForm<FormValues>> }) {
                   const clean = e.currentTarget.value.replace(/\D/g, "")
                   field.onChange(clean)
                 }}
-                className="peer h-11 rounded-xl border border-white/10 bg-white/10 px-3 pr-11 font-medium tracking-wider text-slate-50 placeholder:text-slate-400/50 outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/40"
+                className="peer h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 pr-11 font-medium tracking-wider text-slate-100 placeholder:text-slate-500 outline-none transition-all duration-200 hover:border-white/15 hover:bg-white/[0.06] focus:border-indigo-500/50 focus:bg-white/[0.06] focus:ring-2 focus:ring-indigo-500/20"
               />
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400 transition peer-focus:text-cyan-300">
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500 transition-colors duration-200 peer-focus:text-indigo-400">
                 <Shield className="h-4 w-4" />
               </span>
-              <span className="pointer-events-none absolute -bottom-px left-1/2 h-[2px] w-0 -translate-x-1/2 rounded-full bg-gradient-to-r from-fuchsia-500 via-pink-500 to-cyan-400 transition-all duration-500 peer-focus:w-[92%]" />
             </div>
           </FormControl>
           <FormMessage />
@@ -393,12 +395,12 @@ function PasswordField({
       name="password"
       render={({ field }) => (
         <FormItem>
-          <div className="mb-1 flex items-center justify-between">
-            <FormLabel className="text-[11px] font-medium uppercase tracking-wide text-slate-200">
+          <div className="mb-1.5 flex items-center justify-between">
+            <FormLabel className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
               Contraseña
             </FormLabel>
             {capsLock && (
-              <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-300">
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-400">
                 <Lock className="h-3.5 w-3.5" /> Caps
               </span>
             )}
@@ -412,17 +414,16 @@ function PasswordField({
                 {...field}
                 onKeyDown={handleKeyEvent}
                 onKeyUp={handleKeyEvent}
-                className="peer h-11 rounded-xl border border-white/10 bg-white/10 px-3 pr-11 font-medium tracking-wide text-slate-50 placeholder:text-slate-400/50 outline-none transition focus:border-fuchsia-400 focus:ring-2 focus:ring-fuchsia-500/40"
+                className="peer h-11 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 pr-11 font-medium tracking-wide text-slate-100 placeholder:text-slate-500 outline-none transition-all duration-200 hover:border-white/15 hover:bg-white/[0.06] focus:border-violet-500/50 focus:bg-white/[0.06] focus:ring-2 focus:ring-violet-500/20"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(p => !p)}
                 aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                className="absolute inset-y-0 right-2 flex items-center rounded-md p-1 text-slate-400 transition hover:text-fuchsia-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/40"
+                className="absolute inset-y-0 right-2 flex items-center rounded-lg p-1.5 text-slate-500 transition-colors duration-200 hover:text-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
-              <span className="pointer-events-none absolute -bottom-px left-1/2 h-[2px] w-0 -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-pink-500 transition-all duration-500 peer-focus:w-[92%]" />
             </div>
           </FormControl>
           <FormMessage />
@@ -446,24 +447,29 @@ function SubmitArea({
   failedAttempts: number
 }) {
   return (
-    <div className="flex flex-col gap-3" aria-live="polite">
+    <div className="flex flex-col gap-3 pt-1" aria-live="polite">
       <Button
         type="submit"
         disabled={isLoading || isLocked || !form.formState.isValid}
-        className="group relative h-11 w-full overflow-hidden rounded-xl bg-[linear-gradient(95deg,#7E22CE_0%,#6366F1_30%,#0EA5E9_60%,#06B6D4_90%)] text-sm font-semibold tracking-wide text-white shadow-[0_8px_20px_-6px_rgba(109,40,217,0.55)] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/40 disabled:cursor-not-allowed disabled:opacity-50"
+        className="group relative h-11 w-full overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-sm font-semibold tracking-wide text-white shadow-lg shadow-indigo-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/30 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
       >
+        {/* Shimmer effect on hover */}
+        <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+        
         <span className="relative flex items-center justify-center gap-2">
-          {isLoading && <Loader2 className="h-4 w-4" />}
+          {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           {isLocked ? `Bloqueado (${lockCountdown}s)` : isLoading ? "Verificando..." : "Entrar"}
         </span>
       </Button>
+      
       {failedAttempts > 0 && failedAttempts < MAX_ATTEMPTS && (
-        <p className="text-center text-[11px] font-medium text-amber-300">
+        <p className="text-center text-[11px] font-medium text-amber-400/90">
           Intentos fallidos: {failedAttempts}/{MAX_ATTEMPTS}
         </p>
       )}
+      
       {isLocked && (
-        <div className="rounded-lg border border-rose-400/60 bg-rose-500/15 px-3 py-2 text-center text-[11px] font-medium text-rose-200 shadow-[0_0_0_1px_rgba(244,63,94,0.35),0_0_14px_-2px_rgba(244,63,94,0.55)]">
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-center text-[11px] font-medium text-rose-300 backdrop-blur-sm">
           Bloqueo temporal. Reintenta en {lockCountdown}s.
         </div>
       )}
