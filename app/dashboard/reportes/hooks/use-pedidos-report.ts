@@ -9,6 +9,10 @@ import {
 } from "@/lib/api"
 import { apiUrl } from "@/lib/config"
 
+export const getPedidoKey = (item: PedidoReportDTO, index: number) => {
+  return `${item.pedidoId}-${item.codigoStock}-${item.codigoBarras}-${index}`
+}
+
 type Proveedor = {
   id: number
   ruc: string
@@ -125,7 +129,7 @@ export function usePedidosReport(isActiveTab: boolean) {
     ]
 
     const dataToExport = selectedKeys.length > 0
-      ? pedidosData.filter(item => selectedKeys.includes(item.codigoStock))
+      ? pedidosData.filter((item, index) => selectedKeys.includes(getPedidoKey(item, index)))
       : pedidosData
 
     const tableRows = dataToExport.map((item, index) => [

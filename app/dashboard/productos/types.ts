@@ -32,6 +32,7 @@ export type Producto = {
   proveedorIds?: number[]
   fechaCreacion?: string
   stocks?: StockLote[]
+  nroRegistroSanitario?: string | null
 }
 
 export type FriendlyErrorInfo = { title: string; description: string }

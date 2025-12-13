@@ -33,7 +33,7 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<PedidoReportDTO | null>(null)
   const [editingSaving, setEditingSaving] = useState(false)
-  
+
 
   const [proveedores, setProveedores] = useState<{ id: number; razonComercial: string }[]>([])
   // Persist selection in sessionStorage so remounts don't reset user filters
@@ -54,9 +54,9 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
     if (initialFecha !== undefined && initialFecha !== null) return String(initialFecha)
     try {
       const s = sessionStorage.getItem(STORAGE_FECHA_KEY)
-      return s ?? new Date().toISOString().split("T")[0]
+      return s ?? "" // Default to empty (all dates) instead of today
     } catch (e) {
-      return new Date().toISOString().split("T")[0]
+      return ""
     }
   }
 
@@ -81,13 +81,13 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
   useEffect(() => {
     try {
       sessionStorage.setItem(STORAGE_PROVIDER_KEY, selectedProvider)
-    } catch (e) {}
+    } catch (e) { }
   }, [selectedProvider])
 
   useEffect(() => {
     try {
       sessionStorage.setItem(STORAGE_FECHA_KEY, fechaPedido)
-    } catch (e) {}
+    } catch (e) { }
   }, [fechaPedido])
 
   // Cargar proveedores para el select
@@ -115,9 +115,34 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
     loadingRef.current = true
     setLoading(true)
     try {
-      const pId = selectedProvider ? parseInt(selectedProvider) : 0
-      const res = await getPedidoReport({ proveedorId: pId, fechaPedido })
-      setPedidos(Array.isArray(res) ? res : [])
+      // STRATEGY CHANGE:
+      // The server-side date filter is unreliable due to timezone mismatches or data inconsistencies.
+      // Since "List All" (no date filter) correctly returns all records, we will:
+      // 1. Fetch ALL records for the selected provider (or all providers).
+      // 2. Filter strictly on the client side using local timezone comparisons.
+      // This guarantees that what you see in "List All" is exactly what you can search for.
+
+      const params: { proveedorId?: number } = {}
+      if (selectedProvider && selectedProvider.trim() !== "") {
+        const pId = parseInt(selectedProvider)
+        if (!isNaN(pId) && pId > 0) {
+          params.proveedorId = pId
+        }
+      }
+
+      // 1. Fetch (No date param sent to server)
+      const raw = await getPedidoReport(params)
+      const allResults = Array.isArray(raw) ? raw : []
+
+      let filtered = allResults
+
+      // 2. Client Side Date Filter
+      if (fechaPedido && fechaPedido.trim() !== "") {
+        // Simple string comparison with the Date field from backend
+        filtered = allResults.filter(p => p.fechaDePedido === fechaPedido)
+      }
+
+      setPedidos(filtered)
     } catch (e) {
       console.error("Error cargando pedidos:", e)
       setPedidos([])
@@ -312,7 +337,7 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
             <CardTitle>Pedidos</CardTitle>
             <CardDescription className="text-sm">Listado de pedidos</CardDescription>
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <select
               onChange={(e) => setSelectedProvider(e.target.value)}
               value={selectedProvider}
@@ -323,8 +348,28 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
                 <option key={p.id} value={String(p.id)}>{p.razonComercial}</option>
               ))}
             </select>
-            <input type="date" value={fechaPedido} onChange={(e) => setFechaPedido(e.target.value)} className="bg-background/50 border px-3 py-1 rounded text-sm" />
-            <Button size="sm" variant="outline" onClick={() => { /* manual refresh: trigger effect by resetting state */ setFechaPedido(f => f) }}>
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={fechaPedido}
+                onChange={(e) => setFechaPedido(e.target.value)}
+                className="bg-background/50 border px-3 py-1 rounded text-sm"
+                placeholder="Todas las fechas"
+              />
+              {fechaPedido && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setFechaPedido("")}
+                  title="Limpiar fecha"
+                >
+                  ✕
+                </Button>
+              )}
+            </div>
+            <Button size="sm" variant="outline" onClick={() => loadPedidos()}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1" />
               Refrescar
             </Button>
           </div>
@@ -348,6 +393,7 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
                   <TableHead className="text-right">Cant. Inicial</TableHead>
                   <TableHead className="text-right">P. Compra</TableHead>
                   <TableHead>Vencimiento</TableHead>
+                  <TableHead>F. Pedido</TableHead>
                   <TableHead>Fecha Ingreso</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
@@ -355,41 +401,62 @@ export default function PedidosTablex({ initialProviderId, initialFecha }: { ini
               <TableBody>
                 {pedidos.map((p, i) => {
                   const rowKey = p.pedidoId ? `pedido-${p.pedidoId}` : `pedido-noid-${i}`
+                  const actionsEnabled = !!(selectedProvider && fechaPedido)
+
                   return (
-                  <TableRow key={rowKey}>
-                    <TableCell className="font-mono text-sm">{p.codigoBarras || "—"}</TableCell>
-                    <TableCell className="font-medium">{p.producto}</TableCell>
-                    <TableCell className="font-mono text-sm">{p.codigoStock || "—"}</TableCell>
-                    <TableCell className="text-right">{p.cantUnidades}</TableCell>
-                    <TableCell className="text-right text-muted-foreground">{p.cantInicial}</TableCell>
-                    <TableCell className="text-right">{typeof p.precioCompra === 'number' ? p.precioCompra.toFixed(2) : '—'}</TableCell>
-                    <TableCell>{p.fvencimiento || '—'}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{p.fcreacion ? new Date(p.fcreacion).toLocaleString() : '—'}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button size="icon" variant="ghost" onClick={() => openEditModal(p)}>
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleDelete(p, rowKey)}
-                          disabled={deletingKey === rowKey || !p.pedidoId}
-                        >
-                          <Trash2 className={`w-4 h-4 text-rose-500 ${deletingKey === rowKey ? 'opacity-40' : ''} ${!p.pedidoId ? 'opacity-30 cursor-not-allowed' : ''}`} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )})}
+                    <TableRow key={rowKey}>
+                      <TableCell className="font-mono text-sm">{p.codigoBarras || "—"}</TableCell>
+                      <TableCell className="font-medium">{p.producto}</TableCell>
+                      <TableCell className="font-mono text-sm">{p.codigoStock || "—"}</TableCell>
+                      <TableCell className="text-right">{p.cantUnidades}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{p.cantInicial}</TableCell>
+                      <TableCell className="text-right">{typeof p.precioCompra === 'number' ? p.precioCompra.toFixed(2) : '—'}</TableCell>
+                      <TableCell>{p.fvencimiento || '—'}</TableCell>
+                      <TableCell>
+                        {p.fechaDePedido ? (
+                          <span
+                            onClick={() => setFechaPedido(p.fechaDePedido!)}
+                            className="cursor-pointer hover:underline decoration-dashed text-primary font-medium"
+                            title="Click para filtrar por esta fecha"
+                          >
+                            {p.fechaDePedido}
+                          </span>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{p.fcreacion ? new Date(p.fcreacion).toLocaleString() : '—'}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => openEditModal(p)}
+                            disabled={!actionsEnabled}
+                            title={!actionsEnabled ? "Selecciona proveedor y fecha para editar" : "Editar"}
+                          >
+                            <Edit className={`w-4 h-4 ${!actionsEnabled ? 'opacity-30' : ''}`} />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => handleDelete(p, rowKey)}
+                            disabled={deletingKey === rowKey || !p.pedidoId || !actionsEnabled}
+                            title={!actionsEnabled ? "Selecciona proveedor y fecha para eliminar" : "Eliminar"}
+                          >
+                            <Trash2 className={`w-4 h-4 text-rose-500 ${deletingKey === rowKey ? 'opacity-40' : ''} ${(!p.pedidoId || !actionsEnabled) ? 'opacity-30 cursor-not-allowed' : ''}`} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
         )}
       </CardContent>
-      
+
       <Dialog open={deleteDialogOpen} onOpenChange={(open) => { if (!open) { setDeleteDialogOpen(false); setDeleteTarget(null) } else setDeleteDialogOpen(open) }}>
-          <DialogContent>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Confirmar eliminación</DialogTitle>
             <DialogDescription>

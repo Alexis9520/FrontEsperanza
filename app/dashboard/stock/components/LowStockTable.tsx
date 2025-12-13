@@ -11,8 +11,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LowStockProduct } from "../stock-types"
-import { AlertCircle, RefreshCcw, TrendingDown, Package, ChevronDown, ChevronRight, Boxes, ShoppingCart, CheckCircle2, Loader2 } from "lucide-react"
+import { AlertCircle, RefreshCcw, TrendingDown, Package, ChevronDown, ChevronRight, Boxes, ShoppingCart, CheckCircle2, Loader2, ChevronLeft, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { clsx } from "clsx"
 import { useState, Fragment } from "react"
 
@@ -22,14 +23,27 @@ interface LowStockTableProps {
   threshold: number
   setThreshold: (val: number) => void
   refresh: () => void
+  // Pagination props
+  page: number
+  setPage: (val: number) => void
+  size: number
+  setSize: (val: number) => void
+  totalElements: number
+  totalPages: number
 }
 
-export function LowStockTable({ 
-  data, 
-  loading, 
-  threshold, 
-  setThreshold, 
-  refresh 
+export function LowStockTable({
+  data,
+  loading,
+  threshold,
+  setThreshold,
+  refresh,
+  page,
+  setPage,
+  size,
+  setSize,
+  totalElements,
+  totalPages
 }: LowStockTableProps) {
   const [localThreshold, setLocalThreshold] = useState(threshold.toString())
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set())
@@ -75,25 +89,25 @@ export function LowStockTable({
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 bg-background/60 backdrop-blur-sm rounded-md px-3 py-1.5 border border-border/50">
                 <span className="text-sm font-medium text-muted-foreground">Umbral:</span>
-                <Input 
-                  type="number" 
-                  className="w-16 h-8 text-center bg-transparent border-border/50" 
+                <Input
+                  type="number"
+                  className="w-16 h-8 text-center bg-transparent border-border/50"
                   value={localThreshold}
                   onChange={(e) => setLocalThreshold(e.target.value)}
                   onBlur={handleThresholdBlur}
                   onKeyDown={(e) => e.key === 'Enter' && handleThresholdBlur()}
                 />
               </div>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={refresh} 
-                disabled={loading} 
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={refresh}
+                disabled={loading}
                 className="bg-background/60 backdrop-blur-sm border-border/50 hover:bg-background"
               >
                 <RefreshCcw className={clsx("h-4 w-4", loading && "animate-spin")} />
@@ -206,10 +220,10 @@ export function LowStockTable({
                       <TableRow
                         className={clsx(
                           "transition-all duration-200 cursor-pointer border-b border-border/30",
-                          isCritical 
-                            ? "bg-red-500/[0.04] hover:bg-red-500/[0.08]" 
-                            : index % 2 === 0 
-                              ? "bg-transparent hover:bg-muted/30" 
+                          isCritical
+                            ? "bg-red-500/[0.04] hover:bg-red-500/[0.08]"
+                            : index % 2 === 0
+                              ? "bg-transparent hover:bg-muted/30"
                               : "bg-muted/10 hover:bg-muted/30"
                         )}
                         onClick={() => hasLotes && toggleRow(item.id)}
@@ -256,12 +270,12 @@ export function LowStockTable({
                             )}>
                               {item.cantidadGeneral}
                             </span>
-                            <Progress 
-                              value={stockPercentage} 
+                            <Progress
+                              value={stockPercentage}
                               className={clsx(
                                 "h-1 w-16",
                                 isCritical ? "[&>div]:bg-red-500" : "[&>div]:bg-amber-500"
-                              )} 
+                              )}
                             />
                           </div>
                         </TableCell>
@@ -276,11 +290,11 @@ export function LowStockTable({
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge 
+                          <Badge
                             className={clsx(
                               "gap-1",
-                              isCritical 
-                                ? "bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20 dark:text-red-500" 
+                              isCritical
+                                ? "bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500/20 dark:text-red-500"
                                 : "bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500/20 dark:text-amber-500"
                             )}
                           >
@@ -289,7 +303,7 @@ export function LowStockTable({
                           </Badge>
                         </TableCell>
                       </TableRow>
-                      
+
                       {/* Fila expandible con detalle de lotes */}
                       {isExpanded && hasLotes && (
                         <TableRow className="bg-muted/20 hover:bg-muted/20 border-b border-border/30">
@@ -301,7 +315,7 @@ export function LowStockTable({
                               </div>
                               <div className="grid gap-2">
                                 {item.stocks.map((lote) => (
-                                  <div 
+                                  <div
                                     key={lote.id}
                                     className="flex items-center justify-between bg-background/60 backdrop-blur-sm rounded-lg p-3 border border-border/50"
                                   >
@@ -325,12 +339,12 @@ export function LowStockTable({
                                       </div>
                                       <div className="flex items-center gap-2">
                                         <span className="text-sm text-muted-foreground">Stock:</span>
-                                        <Badge 
+                                        <Badge
                                           className={clsx(
                                             "tabular-nums",
-                                            lote.cantidadUnidades <= 3 
-                                              ? "bg-red-500/10 text-red-600 border border-red-500/20" 
-                                              : "bg-secondary/50 border border-border/50"
+                                            lote.cantidadUnidades <= 3
+                                              ? "bg-red-500/10 text-red-600 border border-red-500/20"
+                                              : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
                                           )}
                                         >
                                           {lote.cantidadUnidades} und
@@ -351,6 +365,76 @@ export function LowStockTable({
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        {!loading && data.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border/50 bg-muted/10">
+            <div className="text-sm text-muted-foreground">
+              Mostrando <span className="font-medium text-foreground">{page * size + 1}</span> -{" "}
+              <span className="font-medium text-foreground">{Math.min((page + 1) * size, totalElements)}</span> de{" "}
+              <span className="font-medium text-foreground">{totalElements}</span> productos
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Filas:</span>
+                <Select value={String(size)} onValueChange={(v) => setSize(Number(v))}>
+                  <SelectTrigger className="h-8 w-[70px] bg-background/60">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[5, 10, 20, 50].map(s => (
+                      <SelectItem key={s} value={String(s)}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-background/60"
+                  onClick={() => setPage(0)}
+                  disabled={page === 0}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-background/60"
+                  onClick={() => setPage(Math.max(0, page - 1))}
+                  disabled={page === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="px-3 text-sm">
+                  Pág. <span className="font-medium">{page + 1}</span> de{" "}
+                  <span className="font-medium">{totalPages || 1}</span>
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-background/60"
+                  onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 bg-background/60"
+                  onClick={() => setPage(totalPages - 1)}
+                  disabled={page >= totalPages - 1}
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   )

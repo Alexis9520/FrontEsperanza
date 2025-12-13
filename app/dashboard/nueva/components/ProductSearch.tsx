@@ -16,14 +16,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table"
 import { CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { GlassPanel } from "./SharedUI"
@@ -173,18 +165,16 @@ export function ProductSearch({
               <h3 className="font-medium text-sm">
                 Resultados <span className="text-muted-foreground">({resultados.length})</span>
               </h3>
-              <div className="flex items-center gap-3">
-                <div className="hidden xl:flex items-center gap-3 pr-3 border-r">
+              <div className="flex items-center gap-2">
+                <div className="hidden md:flex items-center gap-2 pr-2 border-r text-[10px]">
                   <SortButton field="nombre">Nombre</SortButton>
                   <SortButton field="precio">Precio</SortButton>
                   <SortButton field="stock">Stock</SortButton>
-                  <SortButton field="laboratorio">Lab</SortButton>
-                  <SortButton field="tipo">Tipo</SortButton>
-                  <SortButton field="concentracion">Concent.</SortButton>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-7 w-7"
                   onClick={() => {
                     onToggleResultados(false)
                     onSearchChange("")
@@ -194,207 +184,158 @@ export function ProductSearch({
                 </Button>
               </div>
             </div>
-            <div className="rounded-xl border bg-background/60 backdrop-blur max-h-[600px] overflow-auto">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background/95 backdrop-blur z-10 shadow-sm">
-                  <TableRow className="text-[11px]">
-                    <TableHead className="w-[35%] min-w-[200px]">
-                      <SortButton field="nombre">Producto</SortButton>
-                    </TableHead>
-                    <TableHead className="w-[15%]">
-                      <SortButton field="laboratorio">Detalles</SortButton>
-                    </TableHead>
-                    <TableHead className="w-[10%]">
-                      <SortButton field="stock">Stock</SortButton>
-                    </TableHead>
-                    <TableHead className="w-[30%] min-w-[200px]">Cantidad</TableHead>
-                    <TableHead className="w-[10%] text-right">Agregar</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {resultados.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-10 text-sm text-muted-foreground">
-                        Sin resultados
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {resultados.map((prod, idx) => {
-                    const selectionKey =
-                      prod.codigoBarras ??
-                      `${(prod.nombre || "").trim()}|${(prod.laboratorio || "").trim()}|${idx}`
-                    const rowKey = prod.codigoBarras ?? `result-${idx}`
 
-                    const precioUnidadFinal =
-                      prod.precioVentaUnd - (prod.descuento ?? 0)
-                    const sel =
-                      blisterUnidadSeleccion[selectionKey] || {
-                        blisters: 0,
-                        unidades: 0
-                      }
-                    const tipoBadgeVariant =
-                      prod.tipoMedicamento === "MARCA" ? "destructive" : "outline"
-                    
-                    const hasBlister = prod.cantidadUnidadesBlister && prod.cantidadUnidadesBlister > 0
-                    const stockColor = prod.cantidadGeneral <= 5 ? "bg-red-500" : "bg-emerald-500"
+            {resultados.length === 0 ? (
+              <div className="text-center py-10 text-sm text-muted-foreground border rounded-xl bg-background/60">
+                Sin resultados
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 max-h-[600px] overflow-auto p-1">
+                {resultados.map((prod, idx) => {
+                  const selectionKey =
+                    prod.codigoBarras ??
+                    `${(prod.nombre || "").trim()}|${(prod.laboratorio || "").trim()}|${idx}`
+                  const cardKey = prod.codigoBarras ?? `result-${idx}`
 
-                    return (
-                      <TableRow key={rowKey} className="hover:bg-muted/30 transition-colors">
-                        {/* Producto */}
-                        <TableCell className="align-top py-3">
-                          <div className="flex flex-col gap-1">
-                            <div className="font-bold text-base leading-tight text-foreground">
-                              {prod.nombre}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                              {prod.concentracion && (
-                                <span className="bg-muted px-1.5 py-0.5 rounded">{prod.concentracion}</span>
-                              )}
-                              {prod.presentacion && (
-                                <span>• {prod.presentacion}</span>
-                              )}
-                            </div>
-                            <div className="text-[10px] font-mono text-muted-foreground/70 mt-0.5">
-                              {prod.codigoBarras || "SIN CÓDIGO"}
-                            </div>
+                  const precioUnidadFinal =
+                    prod.precioVentaUnd - (prod.descuento ?? 0)
+                  const sel =
+                    blisterUnidadSeleccion[selectionKey] || {
+                      blisters: 0,
+                      unidades: 0
+                    }
+                  const tipoBadgeVariant =
+                    prod.tipoMedicamento === "MARCA" ? "destructive" : "outline"
+
+                  const hasBlister = prod.cantidadUnidadesBlister && prod.cantidadUnidadesBlister > 0
+                  const stockColor = prod.cantidadGeneral <= 5 ? "bg-red-500" : "bg-emerald-500"
+                  const hasSelection = sel.blisters > 0 || sel.unidades > 0
+
+                  return (
+                    <div
+                      key={cardKey}
+                      className={cn(
+                        "rounded-lg border bg-background/80 backdrop-blur-sm px-4 py-4 transition-all",
+                        "flex flex-col md:flex-row md:items-center gap-4",
+                        hasSelection && "ring-2 ring-primary/50 border-primary/30"
+                      )}
+                    >
+                      {/* Product Info Section */}
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {/* Stock Indicator */}
+                        <div className="flex flex-col items-center shrink-0 pt-0.5">
+                          <div className={cn("h-2.5 w-2.5 rounded-full", stockColor)} />
+                          <span className={cn(
+                            "text-lg font-bold tabular-nums",
+                            prod.cantidadGeneral <= 5 ? "text-red-600" : "text-foreground"
+                          )}>
+                            {prod.cantidadGeneral}
+                          </span>
+                        </div>
+                        {/* Product Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm leading-tight line-clamp-1">
+                            {prod.nombre}
                           </div>
-                        </TableCell>
-
-                        {/* Detalles */}
-                        <TableCell className="align-top py-3">
-                          <div className="flex flex-col items-start gap-1.5">
-                            <span className="text-sm font-medium">{prod.laboratorio || "—"}</span>
-                            <Badge variant={tipoBadgeVariant} className="text-[10px] px-1.5 h-5">
-                              {prod.tipoMedicamento || "GENÉRICO"}
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                            <Badge variant={tipoBadgeVariant} className="text-[8px] px-1 h-4">
+                              {prod.tipoMedicamento || "GEN"}
                             </Badge>
-                          </div>
-                        </TableCell>
-
-                        {/* Stock (Rediseñado) */}
-                        <TableCell className="align-top py-3">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                              <div className={cn("h-2.5 w-2.5 rounded-full", stockColor)} />
-                              <span className={cn("text-lg font-bold tabular-nums", prod.cantidadGeneral <= 5 ? "text-red-600" : "text-foreground")}>
-                                {prod.cantidadGeneral}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground font-medium">
-                              Unidades
-                            </span>
-                          </div>
-                        </TableCell>
-
-                        {/* Cantidad Controls */}
-                        <TableCell className="align-top py-3">
-                          <div className="flex flex-col gap-2">
-                            {hasBlister && (
-                              <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-950/20 p-1.5 rounded-lg border border-blue-100 dark:border-blue-900/50">
-                                <div className="flex items-center gap-2 mr-2">
-                                  <div className="p-1 bg-blue-100 dark:bg-blue-900 rounded text-blue-600 dark:text-blue-400">
-                                    <Layers className="h-3.5 w-3.5" />
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">Blister</span>
-                                      <span className="text-[9px] font-medium text-blue-600/80 dark:text-blue-400/80 bg-blue-100/50 dark:bg-blue-900/30 px-1 rounded-[3px]">
-                                        x{prod.cantidadUnidadesBlister}
-                                      </span>
-                                    </div>
-                                    {prod.precioVentaBlister && (
-                                      <span className="text-[10px] text-muted-foreground tabular-nums">S/ {prod.precioVentaBlister.toFixed(2)}</span>
-                                    )}
-                                  </div>
-                                </div>
-                                <BigQtyAdjust
-                                  value={sel.blisters}
-                                  onChange={(val) =>
-                                    setBlisterUnidadSeleccion(prev => ({
-                                      ...prev,
-                                      [selectionKey]: { ...sel, blisters: val }
-                                    }))
-                                  }
-                                  onDec={() =>
-                                    setBlisterUnidadSeleccion(prev => ({
-                                      ...prev,
-                                      [selectionKey]: { ...sel, blisters: Math.max(0, sel.blisters - 1) }
-                                    }))
-                                  }
-                                  onInc={() =>
-                                    setBlisterUnidadSeleccion(prev => ({
-                                      ...prev,
-                                      [selectionKey]: { ...sel, blisters: sel.blisters + 1 }
-                                    }))
-                                  }
-                                />
-                              </div>
+                            {prod.concentracion && (
+                              <span className="text-[9px] text-muted-foreground">{prod.concentracion}</span>
                             )}
-                            
-                            <div className="flex items-center justify-between bg-emerald-50/50 dark:bg-emerald-950/20 p-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/50">
-                              <div className="flex items-center gap-2 mr-2">
-                                <div className="p-1 bg-emerald-100 dark:bg-emerald-900 rounded text-emerald-600 dark:text-emerald-400">
-                                  <Pill className="h-3.5 w-3.5" />
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Unidad</span>
-                                  <span className="text-[10px] text-muted-foreground tabular-nums">S/ {precioUnidadFinal.toFixed(2)}</span>
-                                </div>
+                            <span className="text-[9px] text-muted-foreground">• {prod.laboratorio}</span>
+                          </div>
+                          <div className="text-[8px] font-mono text-muted-foreground/50 mt-0.5">
+                            {prod.codigoBarras || "SIN CÓDIGO"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Quantity Controls - Horizontal */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {hasBlister && (
+                          <div className="flex items-center gap-2 bg-blue-50/50 dark:bg-blue-950/30 px-2 py-1.5 rounded-lg border border-blue-200/50 dark:border-blue-900/50">
+                            <div className="flex items-center gap-1.5">
+                              <Layers className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+                              <div className="text-[10px]">
+                                <div className="font-bold text-blue-700 dark:text-blue-300">x{prod.cantidadUnidadesBlister}</div>
+                                {prod.precioVentaBlister && (
+                                  <div className="text-muted-foreground tabular-nums">S/{prod.precioVentaBlister.toFixed(2)}</div>
+                                )}
                               </div>
-                              <BigQtyAdjust
-                                value={sel.unidades}
-                                onChange={(val) =>
-                                  setBlisterUnidadSeleccion(prev => ({
-                                    ...prev,
-                                    [selectionKey]: { ...sel, unidades: val }
-                                  }))
-                                }
-                                onDec={() =>
-                                  setBlisterUnidadSeleccion(prev => ({
-                                    ...prev,
-                                    [selectionKey]: { ...sel, unidades: Math.max(0, sel.unidades - 1) }
-                                  }))
-                                }
-                                onInc={() =>
-                                  setBlisterUnidadSeleccion(prev => ({
-                                    ...prev,
-                                    [selectionKey]: { ...sel, unidades: sel.unidades + 1 }
-                                  }))
-                                }
-                              />
+                            </div>
+                            <MiniQtyAdjust
+                              value={sel.blisters}
+                              onDec={() =>
+                                setBlisterUnidadSeleccion(prev => ({
+                                  ...prev,
+                                  [selectionKey]: { ...sel, blisters: Math.max(0, sel.blisters - 1) }
+                                }))
+                              }
+                              onInc={() =>
+                                setBlisterUnidadSeleccion(prev => ({
+                                  ...prev,
+                                  [selectionKey]: { ...sel, blisters: sel.blisters + 1 }
+                                }))
+                              }
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/30 px-2 py-1.5 rounded-lg border border-emerald-200/50 dark:border-emerald-900/50">
+                          <div className="flex items-center gap-1.5">
+                            <Pill className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <div className="text-[10px]">
+                              <div className="font-bold text-emerald-700 dark:text-emerald-300">Und</div>
+                              <div className="text-muted-foreground tabular-nums">S/{precioUnidadFinal.toFixed(2)}</div>
                             </div>
                           </div>
-                        </TableCell>
+                          <MiniQtyAdjust
+                            value={sel.unidades}
+                            onDec={() =>
+                              setBlisterUnidadSeleccion(prev => ({
+                                ...prev,
+                                [selectionKey]: { ...sel, unidades: Math.max(0, sel.unidades - 1) }
+                              }))
+                            }
+                            onInc={() =>
+                              setBlisterUnidadSeleccion(prev => ({
+                                ...prev,
+                                [selectionKey]: { ...sel, unidades: sel.unidades + 1 }
+                              }))
+                            }
+                          />
+                        </div>
+                      </div>
 
-                        {/* Agregar Button */}
-                        <TableCell className="align-middle text-right py-3">
-                          <Button
-                            size="icon"
-                            className={cn(
-                              "h-12 w-12 rounded-xl shadow-sm transition-all duration-200",
-                              (sel.blisters > 0 || sel.unidades > 0) 
-                                ? "bg-primary hover:bg-primary/90 scale-100 shadow-md" 
-                                : "bg-muted text-muted-foreground hover:bg-muted/80 scale-95 opacity-70"
-                            )}
-                            onClick={() => onAddToCart(prod, selectionKey)}
-                            disabled={sel.blisters === 0 && sel.unidades === 0}
-                          >
-                            <Plus className={cn("h-6 w-6", (sel.blisters > 0 || sel.unidades > 0) && "animate-in zoom-in duration-300")} />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                      {/* Add Button */}
+                      <Button
+                        size="icon"
+                        className={cn(
+                          "h-10 w-10 rounded-lg shrink-0 transition-all",
+                          hasSelection
+                            ? "bg-primary hover:bg-primary/90 shadow-md"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                        onClick={() => onAddToCart(prod, selectionKey)}
+                        disabled={!hasSelection}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
     </GlassPanel>
   )
 }
-
-function BigQtyAdjust({
+// Compact quantity adjust that takes full width
+function CompactQtyAdjust({
   value,
   onDec,
   onInc,
@@ -406,32 +347,54 @@ function BigQtyAdjust({
   onChange: (val: number) => void
 }) {
   return (
-    <div className="flex items-center bg-background rounded-md border shadow-sm h-8">
+    <div className="flex items-center bg-background rounded-lg border shadow-sm h-9 w-full">
       <button
         type="button"
         onClick={onDec}
         disabled={value <= 0}
-        className="h-full w-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-30 transition-colors rounded-l-md border-r"
+        className="h-full w-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-30 transition-colors rounded-l border-r"
       >
-        <Minus className="h-3.5 w-3.5" />
+        <Minus className="h-3 w-3" />
       </button>
-      <input
-        type="number"
-        min="0"
-        value={value === 0 ? "" : value}
-        onChange={(e) => {
-          const val = e.target.value === "" ? 0 : parseInt(e.target.value)
-          if (!isNaN(val)) onChange(val)
-        }}
-        placeholder="0"
-        className="w-12 text-center font-semibold text-sm tabular-nums h-full bg-transparent border-none focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-muted-foreground/30"
-      />
+      <span className="w-6 text-center font-bold text-sm tabular-nums">{value}</span>
       <button
         type="button"
         onClick={onInc}
-        className="h-full w-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors rounded-r-md border-l"
+        className="h-full w-8 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors rounded-r border-l"
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className="h-3 w-3" />
+      </button>
+    </div>
+  )
+}
+
+// Mini quantity adjust for inline horizontal use
+function MiniQtyAdjust({
+  value,
+  onDec,
+  onInc
+}: {
+  value: number
+  onDec: () => void
+  onInc: () => void
+}) {
+  return (
+    <div className="flex items-center bg-background rounded border shadow-sm h-7">
+      <button
+        type="button"
+        onClick={onDec}
+        disabled={value <= 0}
+        className="h-full w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-30 transition-colors rounded-l border-r"
+      >
+        <Minus className="h-3 w-3" />
+      </button>
+      <span className="w-6 text-center font-bold text-xs tabular-nums">{value}</span>
+      <button
+        type="button"
+        onClick={onInc}
+        className="h-full w-6 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors rounded-r border-l"
+      >
+        <Plus className="h-3 w-3" />
       </button>
     </div>
   )

@@ -26,7 +26,7 @@ export default function ProveedoresPage() {
     setBusqueda,
     loading,
     cargarProveedores,
-    
+
     nuevoProveedor,
     setNuevoProveedor,
     showNuevoDialog,
@@ -88,11 +88,12 @@ export default function ProveedoresPage() {
   }
 
   return (
-    <div className="relative flex flex-col gap-8 pb-20">
-      {/* Fondo */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(56,189,248,0.12),transparent_60%),radial-gradient(circle_at_80%_70%,rgba(99,102,241,0.10),transparent_65%),linear-gradient(140deg,rgba(255,255,255,0.03),transparent_40%,rgba(255,255,255,0.02)_70%,transparent)]" />
-        <div className="absolute inset-0 opacity-[0.06] [background:repeating-linear-gradient(45deg,rgba(255,255,255,0.10)_0_2px,transparent_2px_10px)]" />
+    <div className="flex flex-col gap-6 relative p-4 md:p-6 min-h-screen">
+      {/* Fondo estandarizado - igual a Caja/Stock */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/30" />
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/[0.03] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-muted/40 rounded-full blur-3xl" />
       </div>
 
       {/* Header */}
@@ -129,26 +130,26 @@ export default function ProveedoresPage() {
       </React.Suspense>
 
       {activeView === 'proveedores' ? (
-      <Card className="relative overflow-hidden border-border/60">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-cyan-400" />
-            Proveedores ({proveedoresFiltrados.length})
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Lista de proveedores registrados
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ProveedoresTable
-            proveedores={proveedoresFiltrados}
-            loading={loading}
-            onEdit={iniciarEdicion}
-            onDelete={setProveedorAEliminar}
-            onNewOrder={abrirDialogoPedido}
-          />
-        </CardContent>
-      </Card>
+        <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-cyan-400" />
+              Proveedores ({proveedoresFiltrados.length})
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Lista de proveedores registrados
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProveedoresTable
+              proveedores={proveedoresFiltrados}
+              loading={loading}
+              onEdit={iniciarEdicion}
+              onDelete={setProveedorAEliminar}
+              onNewOrder={abrirDialogoPedido}
+            />
+          </CardContent>
+        </Card>
       ) : (
         <React.Suspense fallback={<div className="py-6 text-center text-muted-foreground">Cargando pedidos...</div>}>
           <PedidosWrapper />
@@ -176,7 +177,6 @@ export default function ProveedoresPage() {
         enviandoPedido={enviandoPedido}
       />
 
-      {/* DIALOGS: EDITAR Y ELIMINAR */}
       <ProveedoresDialogs
         editandoProveedor={editandoProveedor}
         setEditandoProveedor={setEditandoProveedor}

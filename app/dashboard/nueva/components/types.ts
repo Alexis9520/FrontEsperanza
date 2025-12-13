@@ -11,6 +11,7 @@ export interface Producto {
   laboratorio?: string
   tipoMedicamento?: "GENÉRICO" | "MARCA" | string
   presentacion?: string
+  nroRegistroSanitario?: string | null
 }
 
 export interface ProductoCarrito {

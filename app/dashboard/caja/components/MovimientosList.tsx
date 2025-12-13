@@ -75,7 +75,7 @@ export function MovimientosList({ movimientos, onNuevoMovimiento, cajaAbierta }:
   }
 
   return (
-    <GlassPanel className="flex flex-col h-full">
+    <GlassPanel className="flex flex-col min-h-[400px]">
       <div className="p-4 border-b border-border/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/30">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold tracking-tight">Movimientos del Día</h2>
@@ -83,7 +83,7 @@ export function MovimientosList({ movimientos, onNuevoMovimiento, cajaAbierta }:
             {movimientosFiltrados.length}
           </Badge>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {cajaAbierta && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -210,11 +210,10 @@ export function MovimientosList({ movimientos, onNuevoMovimiento, cajaAbierta }:
               </TableRow>
             ) : (
               movimientosFiltrados.map((mov, index) => (
-                <TableRow 
-                  key={mov.id} 
-                  className={`transition-colors border-b border-border/30 ${
-                    index % 2 === 0 ? "bg-transparent hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/30"
-                  }`}
+                <TableRow
+                  key={mov.id}
+                  className={`transition-colors border-b border-border/30 ${index % 2 === 0 ? "bg-transparent hover:bg-muted/30" : "bg-muted/10 hover:bg-muted/30"
+                    }`}
                 >
                   <TableCell className="font-mono text-xs text-muted-foreground tabular-nums">
                     {format(new Date(mov.fecha), "HH:mm:ss")}
@@ -242,8 +241,8 @@ export function MovimientosList({ movimientos, onNuevoMovimiento, cajaAbierta }:
                   <TableCell className="text-right font-mono font-medium tabular-nums">
                     <span
                       className={
-                        (mov.tipo || "").toUpperCase() === "INGRESO" 
-                          ? "text-emerald-600 dark:text-emerald-500" 
+                        (mov.tipo || "").toUpperCase() === "INGRESO"
+                          ? "text-emerald-600 dark:text-emerald-500"
                           : "text-red-600 dark:text-red-500"
                       }
                     >

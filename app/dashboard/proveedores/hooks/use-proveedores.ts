@@ -39,11 +39,21 @@ export function useProveedores() {
   const [productosProveedor, setProductosProveedor] = useState<ProductDTO[]>([])
   const [loadingProductos, setLoadingProductos] = useState(false)
   const [filtroProducto, setFiltroProducto] = useState("")
-  const [fechaPedido, setFechaPedido] = useState(new Date().toISOString().split('T')[0]) // Default Hoy
-  
+
+  // Default Hoy (Local Time) to avoid UTC rollover issues
+  const getLocalDate = () => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  const [fechaPedido, setFechaPedido] = useState(getLocalDate())
+
   // "Carrito" de lotes: Un objeto donde la clave es el ID del producto y el valor es un array de lotes
   const [lotesPorProducto, setLotesPorProducto] = useState<Record<number, NewStockLot[]>>({})
-  
+
   // Estado para controlar qué producto está expandido en el acordeón
   const [productoExpandido, setProductoExpandido] = useState<number | null>(null)
   const [enviandoPedido, setEnviandoPedido] = useState(false)
@@ -201,7 +211,7 @@ export function useProveedores() {
     setLotesPorProducto({})
     setFiltroProducto("")
     setProductoExpandido(null)
-    setFechaPedido(new Date().toISOString().split('T')[0])
+    setFechaPedido(getLocalDate())
     setShowPedidoDialog(true)
     setLoadingProductos(true)
 
@@ -274,6 +284,19 @@ export function useProveedores() {
       // Enviar todas las peticiones en paralelo y esperar que todas terminen.
       const proveedorId = proveedorPedido?.id ?? null
 
+      // Logic for timestamp:
+      // If selected date == Today (Local), send NOW.
+      // If selected date != Today (Local), send {SelectedDate}T13:13:00.000Z (Default time)
+      const localToday = getLocalDate()
+      let finalTimestamp: string
+
+      if (fechaPedido === localToday) {
+        finalTimestamp = new Date().toISOString()
+      } else {
+        // Arbitrary default time for past/future dates: 13:13 UTC
+        finalTimestamp = `${fechaPedido}T13:13:00.000Z`
+      }
+
       const requests = productosConLotes.map(([prodIdStr, lotes]) => {
         const productoId = Number(prodIdStr)
         // Buscar el producto para obtener codigoBarras
@@ -281,13 +304,25 @@ export function useProveedores() {
         const codigoBarras = prod?.codigoBarras || null
 
         // Nuevo modelo solicitado por el backend
+        // Revertimos fechaDePedido a YYYY-MM-DD para evitar el crash (LocalDate).
+        // Estrategia "Shotgun" Expandida:
+        // EL BACKEND EXPLOTA SI fechaDePedido TIENE HORA. NO MODIFICAR ESTO.
         const payload = {
           stockData: {
             productoId,
             codigoBarras,
-            lotes
+            lotes,
+            fechaCreacion: finalTimestamp // Intento anidado
           },
-          fechaDePedido: fechaPedido,
+          fechaDePedido: fechaPedido, // REVERTIDO: Solo Fecha (YYYY-MM-DD)
+
+          // Variaciones de campos de fecha de creación:
+          fcreacion: finalTimestamp,
+          fechaCreacion: finalTimestamp,
+          fechaIngreso: finalTimestamp,
+          createdAt: finalTimestamp,
+          createdDate: finalTimestamp,
+
           proveedorId: proveedorId
         }
 
@@ -352,7 +387,7 @@ export function useProveedores() {
     setBusqueda,
     loading,
     cargarProveedores,
-    
+
     nuevoProveedor,
     setNuevoProveedor,
     showNuevoDialog,

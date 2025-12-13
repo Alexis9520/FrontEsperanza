@@ -1,11 +1,12 @@
 import React, { useMemo } from "react"
+
 import { Truck, FileText, Search } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { DataTable, Column } from "./DataTable"
-import { usePedidosReport } from "../hooks/use-pedidos-report"
+import { usePedidosReport, getPedidoKey } from "../hooks/use-pedidos-report"
 import { type PedidoReportDTO } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -134,7 +135,7 @@ export function PedidosTab({ isActive }: { isActive: boolean }) {
             enableSelection={true}
             selectedKeys={selectedKeys}
             onSelectionChange={setSelectedKeys}
-            keyExtractor={(item) => item.codigoStock}
+            keyExtractor={(item, idx) => getPedidoKey(item, idx)}
             emptyMessage={
               <div className="flex flex-col items-center gap-2 text-muted-foreground py-8">
                 <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center">

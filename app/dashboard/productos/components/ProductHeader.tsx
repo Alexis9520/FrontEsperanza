@@ -1,8 +1,9 @@
 "use client"
 
-import { RefreshCw, Plus, Sparkles, Maximize2, Minimize2 } from "lucide-react"
+import { RefreshCw, Plus, Sparkles, Maximize2, Minimize2, Package, Activity } from "lucide-react"
 import clsx from "clsx"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -36,14 +37,23 @@ export function ProductHeader({
   onGuardar
 }: ProductHeaderProps) {
   return (
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-cyan-100">
-          Gestión de Productos
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Administra el catálogo y lotes de inventario
-        </p>
+    <div className="flex flex-col lg:flex-row justify-between gap-4 items-start lg:items-center">
+      <div className="flex items-start gap-4">
+        <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+          <Package className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">Gestión de Productos</h1>
+            <Badge variant="outline" className="text-xs gap-1 text-primary border-primary/30">
+              <Activity className="h-3 w-3" />
+              Catálogo
+            </Badge>
+          </div>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Administra el catálogo y lotes de inventario
+          </p>
+        </div>
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <Button
@@ -60,7 +70,7 @@ export function ProductHeader({
           />
           Refrescar
         </Button>
-        
+
         <div className="flex items-center rounded-full border bg-background/60 backdrop-blur px-1">
           <Button
             size="icon"

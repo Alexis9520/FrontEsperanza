@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { RefreshCcw, Package, AlertTriangle, TrendingDown, Boxes, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -16,7 +16,35 @@ import { StockPagination } from "./components/StockPaginationNew"
 import { ExpiringStockTable } from "./components/ExpiringStockTable"
 import { LowStockTable } from "./components/LowStockTable"
 
+interface Usuario {
+  rol?: string
+  nombre?: string
+}
+
 export default function StockPage() {
+  const [usuario, setUsuario] = useState<Usuario | null>(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem("usuario")
+    if (stored) {
+      try {
+        setUsuario(JSON.parse(stored))
+      } catch { }
+    }
+  }, [])
+
+  // Estado para la pestaña activa
+  const [activeTab, setActiveTab] = useState("general")
+
+  // Redirigir a 'expiring' si es trabajador y está en 'general'
+  useEffect(() => {
+    if (usuario?.rol === "TRABAJADOR" && activeTab === "general") {
+      setActiveTab("expiring")
+    }
+  }, [usuario])
+
+  const isTrabajador = usuario?.rol === "TRABAJADOR"
+
   // Hook para inventario general
   const {
     stock,
@@ -47,6 +75,12 @@ export default function StockPage() {
     loading: lowStockLoading,
     threshold,
     setThreshold,
+    page: lowStockPage,
+    setPage: setLowStockPage,
+    size: lowStockSize,
+    setSize: setLowStockSize,
+    totalElements: lowStockTotalElements,
+    totalPages: lowStockTotalPages,
     refresh: refreshLowStock
   } = useLowStock()
 
@@ -83,19 +117,21 @@ export default function StockPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         {/* Tabs mejorados con mejor contraste */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-1 rounded-xl bg-muted/50 backdrop-blur-sm border border-border/50">
-          <TabsList className="grid w-full sm:w-auto sm:max-w-lg grid-cols-3 bg-background/60">
-            <TabsTrigger 
-              value="general" 
-              className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all"
-            >
-              <Package className="h-4 w-4" />
-              <span className="hidden sm:inline">Inventario</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="expiring" 
+          <TabsList className={`grid w-full sm:w-auto sm:max-w-lg ${isTrabajador ? "grid-cols-2" : "grid-cols-3"} bg-background/60`}>
+            {!isTrabajador && (
+              <TabsTrigger
+                value="general"
+                className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all"
+              >
+                <Package className="h-4 w-4" />
+                <span className="hidden sm:inline">Inventario</span>
+              </TabsTrigger>
+            )}
+            <TabsTrigger
+              value="expiring"
               className="gap-2 data-[state=active]:bg-amber-500 data-[state=active]:text-white transition-all"
             >
               <AlertTriangle className="h-4 w-4" />
@@ -106,53 +142,55 @@ export default function StockPage() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger 
-              value="lowstock" 
+            <TabsTrigger
+              value="lowstock"
               className="gap-2 data-[state=active]:bg-red-500 data-[state=active]:text-white transition-all"
             >
               <TrendingDown className="h-4 w-4" />
               <span className="hidden sm:inline">Bajo Stock</span>
-              {lowStockProducts.length > 0 && (
+              {lowStockTotalElements > 0 && (
                 <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300">
-                  {lowStockProducts.length}
+                  {lowStockTotalElements}
                 </Badge>
               )}
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="general" className="space-y-5 mt-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <StockFilters filters={filters} onFilterChange={updateFilter} />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={refresh}
-              disabled={loading}
-              className="gap-2 shrink-0 bg-background/60 backdrop-blur-sm hover:bg-background"
-            >
-              <RefreshCcw className={clsx("h-4 w-4", loading && "animate-spin")} />
-              {loading ? "Actualizando..." : "Refrescar"}
-            </Button>
-          </div>
-          
-          <div className="space-y-4">
-            <StockTable data={stock} loading={loading} />
-            
-            <StockPagination
-              page={page}
-              totalPages={totalPages}
-              totalElements={totalElements}
-              size={size}
-              onPageChange={setPage}
-              onSizeChange={setSize}
-              loading={loading}
-            />
-          </div>
-        </TabsContent>
+        {!isTrabajador && (
+          <TabsContent value="general" className="space-y-5 mt-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <StockFilters filters={filters} onFilterChange={updateFilter} />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={refresh}
+                disabled={loading}
+                className="gap-2 shrink-0 bg-background/60 backdrop-blur-sm hover:bg-background"
+              >
+                <RefreshCcw className={clsx("h-4 w-4", loading && "animate-spin")} />
+                {loading ? "Actualizando..." : "Refrescar"}
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              <StockTable data={stock} loading={loading} />
+
+              <StockPagination
+                page={page}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                size={size}
+                onPageChange={setPage}
+                onSizeChange={setSize}
+                loading={loading}
+              />
+            </div>
+          </TabsContent>
+        )}
 
         <TabsContent value="expiring" className="mt-0">
-          <ExpiringStockTable 
+          <ExpiringStockTable
             data={expiringStock}
             loading={expiringLoading}
             withinDays={withinDays}
@@ -162,12 +200,18 @@ export default function StockPage() {
         </TabsContent>
 
         <TabsContent value="lowstock" className="mt-0">
-          <LowStockTable 
+          <LowStockTable
             data={lowStockProducts}
             loading={lowStockLoading}
             threshold={threshold}
             setThreshold={setThreshold}
             refresh={refreshLowStock}
+            page={lowStockPage}
+            setPage={setLowStockPage}
+            size={lowStockSize}
+            setSize={setLowStockSize}
+            totalElements={lowStockTotalElements}
+            totalPages={lowStockTotalPages}
           />
         </TabsContent>
       </Tabs>

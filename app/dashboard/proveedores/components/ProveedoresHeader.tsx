@@ -12,10 +12,12 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Plus,
   RefreshCw,
-  Building2
+  Building2,
+  Activity
 } from "lucide-react"
 import clsx from "clsx"
 
@@ -43,14 +45,23 @@ export function ProveedoresHeader({
   onAgregar
 }: ProveedoresHeaderProps) {
   return (
-    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-cyan-100">
-          Gestión de Proveedores
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Administra los proveedores de la farmacia
-        </p>
+    <div className="flex flex-col lg:flex-row justify-between gap-4 items-start lg:items-center">
+      <div className="flex items-start gap-4">
+        <div className="h-12 w-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+          <Building2 className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight">Gestión de Proveedores</h1>
+            <Badge variant="outline" className="text-xs gap-1 text-primary border-primary/30">
+              <Activity className="h-3 w-3" />
+              Directorio
+            </Badge>
+          </div>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Administra los proveedores de la farmacia
+          </p>
+        </div>
       </div>
       <div className="flex items-center gap-3 flex-wrap">
         <div className="hidden sm:flex items-center gap-2">

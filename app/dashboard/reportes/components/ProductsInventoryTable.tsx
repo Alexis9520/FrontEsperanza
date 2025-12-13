@@ -317,6 +317,7 @@ export function ProductsInventoryTable() {
                       </th>
                       <th className="px-4 py-3 w-8"></th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Código</th>
+                      <th className="px-4 py-3 text-left font-medium text-muted-foreground">Registro</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Nombre</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Categoría</th>
                       <th className="px-4 py-3 text-left font-medium text-muted-foreground">Laboratorio</th>
@@ -346,6 +347,7 @@ export function ProductsInventoryTable() {
                             )}
                           </td>
                           <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{product.codigoBarras || "—"}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{product.nroRegistroSanitario || "—"}</td>
                           <td className="px-4 py-3 font-medium text-foreground">{product.nombre}</td>
                           <td className="px-4 py-3 text-muted-foreground">{product.categoria || "—"}</td>
                           <td className="px-4 py-3 text-muted-foreground">{product.laboratorio || "—"}</td>
@@ -372,7 +374,7 @@ export function ProductsInventoryTable() {
                         {/* Fila expandida para Lotes */}
                         {expanded[product.id] && product.stocks && product.stocks.length > 0 && (
                           <tr>
-                            <td colSpan={9} className="px-4 py-3 bg-emerald-50/20 dark:bg-emerald-900/5 border-b border-emerald-500/10 shadow-inner">
+                            <td colSpan={10} className="px-4 py-3 bg-emerald-50/20 dark:bg-emerald-900/5 border-b border-emerald-500/10 shadow-inner">
                               <div className="pl-10 pr-4">
                                 <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600/80 mb-3 uppercase tracking-wider">
                                   <Package className="w-3 h-3" /> Detalle de Lotes Activos

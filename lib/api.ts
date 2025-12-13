@@ -172,6 +172,7 @@ export type ProductDTO = {
   proveedorId: number | null;
   proveedorNombre: string | null;
   stocks: ProductStock[];
+  nroRegistroSanitario?: string | null;
 }
 // Para el POST /api/pedidos/agregar-stock
 export type NewStockLot = {
@@ -210,6 +211,7 @@ export type PedidoReportDTO = {
   cantUnidades: number;
   cantInicial: number;
   precioCompra: number;
+  fechaDePedido: string | null; // "YYYY-MM-DD"
   fvencimiento: string | null;
   fcreacion: string;
   pedidoId: number;
@@ -295,6 +297,20 @@ export function getProducts(params: { page?: number; size?: number; search?: str
 
   return fetchWithAuth(apiUrl("/productos") + toQuery(queryParams)) as Promise<PageResponse<ProductDTO>>;
 }
+
+/** Métricas de productos desde el backend */
+export type ProductMetricsDTO = {
+  totalProductosActivos: number
+  cantidadTotalUnidades: number
+  productosStockCritico: number
+  lotesVencidos: number
+}
+
+/** GET /productos/metricas - Obtiene métricas globales de productos */
+export function getProductMetrics() {
+  return fetchWithAuth(apiUrl("/productos/metricas")) as Promise<ProductMetricsDTO>
+}
+
 /* Pedidos y Gestión de Stock con Proveedores */
 
 export type AddStockSimplePayload = {
@@ -365,12 +381,31 @@ export async function deleteStock(id: string | number, toastFn?: ToastFn) {
 
 //* GET /api/pedidos/reporte
 
-export function getPedidoReport(params: { proveedorId: number; fechaPedido: string }) {
-  // Mapeamos los nombres de parámetros de JS a los que espera tu Backend (snake_case / especificos)
-  const queryParams = {
-    ID_proveedor: params.proveedorId,
-    fecha_de_pedido: params.fechaPedido
-  };
+/** 
+ * GET /api/pedidos/reporte - Obtiene reporte de pedidos
+ * @param params - Filtros opcionales:
+ *   - proveedorId: Solo pedidos de este proveedor (0 o undefined = todos)
+ *   - fechaPedido: Solo pedidos de esta fecha (undefined = todas)
+ * @example 
+ *   getPedidoReport() // Todos los pedidos
+ *   getPedidoReport({ proveedorId: 5 }) // Solo del proveedor 5
+ *   getPedidoReport({ fechaPedido: '2024-12-13' }) // Solo de esa fecha
+ *   getPedidoReport({ proveedorId: 5, fechaPedido: '2024-12-13' }) // Combinado
+ */
+export function getPedidoReport(params?: { proveedorId?: number; fechaPedido?: string }) {
+  // Build query params only for valid values
+  const queryParams: Record<string, any> = {}
+
+  // Only add ID_proveedor if it's a valid number > 0
+  if (params?.proveedorId && params.proveedorId > 0) {
+    queryParams.ID_proveedor = params.proveedorId
+  }
+
+  // Only add fecha_de_pedido if it's a non-empty string
+  if (params?.fechaPedido && params.fechaPedido.trim() !== "") {
+    queryParams.fecha_de_pedido = params.fechaPedido
+  }
+
   return fetchWithAuth(apiUrl("/api/pedidos/reporte") + toQuery(queryParams)) as Promise<PedidoReportDTO[]>;
 }
 
@@ -405,6 +440,23 @@ export function getProductsByProvider(proveedorId: number) {
 
 /* Ventas / Boletas (accesible a trabajador + admin) */
 export type VentaItem = { id: number; codBarras: string; nombre: string; cantidad: number; precio: number }
+
+/** Detalle enriquecido de producto vendido - nueva estructura del backend */
+export type DetalleEnriquecido = {
+  productoId: number
+  codigoBarras: string
+  nombre: string
+  tipoVenta: "UNIDAD" | "BLISTER" | string
+  cantidad: number
+  cantidadBlisters: number
+  unidadesPorBlister: number
+  precioAplicado: number
+  precioActualUnd: number
+  precioActualBlister: number
+  precioModificado: boolean
+  subtotal: number
+}
+
 export type BoletaDTO = {
   id: number
   numero: string
@@ -415,7 +467,10 @@ export type BoletaDTO = {
   total?: number | null
   vuelto?: number | null
   usuario: string | null
-  productos: VentaItem[]
+  /** @deprecated Usar detallesEnriquecidos en su lugar */
+  productos?: VentaItem[]
+  /** Nueva estructura de detalles desde el backend */
+  detallesEnriquecidos?: DetalleEnriquecido[]
 }
 
 // Compat multi-formato

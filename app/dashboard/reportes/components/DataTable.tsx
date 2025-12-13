@@ -31,17 +31,17 @@ export function DataTable<T extends Record<string, any>>({
   enableSelection?: boolean
   selectedKeys?: (string | number)[]
   onSelectionChange?: (keys: (string | number)[]) => void
-  keyExtractor?: (item: T) => string | number
+  keyExtractor?: (item: T, index: number) => string | number
 }) {
   const allSelected = data.length > 0 && data.every((item, idx) => {
-    const key = keyExtractor ? keyExtractor(item) : (item.id ?? idx)
+    const key = keyExtractor ? keyExtractor(item, idx) : (item.id ?? idx)
     return selectedKeys.includes(key)
   })
 
   const handleSelectAll = (checked: boolean) => {
     if (!onSelectionChange) return
     if (checked) {
-      const allKeys = data.map((item, idx) => keyExtractor ? keyExtractor(item) : (item.id ?? idx))
+      const allKeys = data.map((item, idx) => keyExtractor ? keyExtractor(item, idx) : (item.id ?? idx))
       onSelectionChange(allKeys)
     } else {
       onSelectionChange([])
@@ -88,11 +88,11 @@ export function DataTable<T extends Record<string, any>>({
         <tbody className="divide-y divide-border/30">
           {data?.length ? (
             data.map((row, idx) => {
-              const key = keyExtractor ? keyExtractor(row) : (row.id ?? idx)
+              const key = keyExtractor ? keyExtractor(row, idx) : (row.id ?? idx)
               const isSelected = selectedKeys.includes(key)
               return (
-                <tr 
-                  key={key} 
+                <tr
+                  key={key}
                   className={cn(
                     "transition-colors duration-150",
                     "hover:bg-muted/30",
@@ -110,8 +110,8 @@ export function DataTable<T extends Record<string, any>>({
                     </td>
                   )}
                   {columns.map((c) => (
-                    <td 
-                      key={String(c.key)} 
+                    <td
+                      key={String(c.key)}
                       className={cn(
                         "px-3 py-2.5 whitespace-nowrap",
                         alignClass(c.align),

@@ -162,37 +162,38 @@ export function ProductTable({
   }
 
   return (
-    <Card className="relative overflow-hidden border-border/60">
-      <CardHeader className="pb-3">
+    <Card className="relative overflow-hidden border border-border/50 bg-card/50 backdrop-blur-sm">
+      <CardHeader className="pb-3 border-b border-border/50 bg-muted/30">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <LayoutList className="h-4 w-4 text-cyan-400" />
+          <LayoutList className="h-4 w-4 text-primary" />
           Catálogo
         </CardTitle>
         <CardDescription className="text-xs">
           Expande para ver detalles y lotes.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="rounded-xl border bg-background/70 backdrop-blur-md overflow-x-auto">
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
           <Table
             className={clsx(
               "transition-all",
               densityCompact && "[&_td]:py-1 [&_th]:py-2 text-sm"
             )}
           >
-            <TableHeader className="bg-muted/40 backdrop-blur-md">
-              <TableRow>
+            <TableHeader className="bg-muted/20">
+              <TableRow className="border-b border-border/50 hover:bg-transparent text-[11px]">
                 <TableHead className="w-8" />
                 <TableHead>Código</TableHead>
+                <TableHead className="hidden xl:table-cell">Registro</TableHead>
                 <TableHead>Producto</TableHead>
-                <TableHead>Clasificación</TableHead>
-                <TableHead>Proveedores</TableHead>
-                <TableHead>Presentación</TableHead>
+                <TableHead className="hidden lg:table-cell">Clasificación</TableHead>
+                <TableHead className="hidden xl:table-cell">Proveedores</TableHead>
+                <TableHead className="hidden lg:table-cell">Presentación</TableHead>
                 <TableHead>Stock</TableHead>
-                <TableHead>Blister</TableHead>
+                <TableHead className="hidden md:table-cell">Blister</TableHead>
                 <TableHead>Precio</TableHead>
-                <TableHead>Lotes</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="hidden md:table-cell">Lotes</TableHead>
+                <TableHead className="text-right">Acc.</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,6 +227,9 @@ export function ProductTable({
                       <TableCell className="font-medium tabular-nums">
                         {p.codigoBarras}
                       </TableCell>
+                      <TableCell className="hidden xl:table-cell font-medium tabular-nums text-xs">
+                        {p.nroRegistroSanitario || "—"}
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium leading-tight">
@@ -248,7 +252,7 @@ export function ProductTable({
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="text-[11px]">
                           <span className="font-medium">
                             {p.categoria || "—"}
@@ -258,41 +262,38 @@ export function ProductTable({
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[180px]">
+                      <TableCell className="hidden xl:table-cell max-w-[150px]">
                         <div className="flex flex-wrap gap-1">
                           {p.proveedores && p.proveedores.length > 0 ? (
-                            p.proveedores.map((prov) => (
+                            p.proveedores.slice(0, 2).map((prov) => (
                               <Badge
                                 key={prov.id}
                                 variant="secondary"
-                                className="px-1.5 h-5 text-[9px] rounded-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-full"
+                                className="px-1 h-4 text-[8px] rounded-sm truncate max-w-[70px]"
                               >
                                 {prov.razonComercial}
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-[10px] text-muted-foreground italic">Sin proveedor</span>
+                            <span className="text-[9px] text-muted-foreground italic">Sin prov.</span>
+                          )}
+                          {p.proveedores && p.proveedores.length > 2 && (
+                            <span className="text-[8px] text-muted-foreground">+{p.proveedores.length - 2}</span>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="text-[11px] max-w-[160px] truncate">
+                              <div className="text-[10px] max-w-[120px] truncate">
                                 {p.presentacion || "—"}
-                                {p.principioActivo && (
-                                  <span className="text-muted-foreground ml-1">
-                                    · {p.principioActivo}
-                                  </span>
-                                )}
                               </div>
                             </TooltipTrigger>
                             {p.principioActivo && (
                               <TooltipContent>
                                 <p className="text-xs">
-                                  Principio activo:{" "}
-                                  <strong>{p.principioActivo}</strong>
+                                  P.A.: <strong>{p.principioActivo}</strong>
                                 </p>
                               </TooltipContent>
                             )}
@@ -303,24 +304,23 @@ export function ProductTable({
                         {stockBar(p)}
                         {stockMinBadge(p)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {p.cantidadUnidadesBlister ? (
-                          <div className="flex flex-col gap-0.5 text-[11px]">
+                          <div className="flex flex-col gap-0.5 text-[10px]">
                             <Badge
                               variant="outline"
-                              className="px-1.5 h-5 rounded-full"
+                              className="px-1 h-4 rounded-full text-[9px]"
                             >
                               {p.cantidadUnidadesBlister} u
                             </Badge>
                             {p.precioVentaBlister && (
                               <span className="text-muted-foreground tabular-nums">
-                                S/{" "}
-                                {Number(p.precioVentaBlister).toFixed(2)}
+                                S/ {Number(p.precioVentaBlister).toFixed(2)}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-[11px] text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground">
                             —
                           </span>
                         )}
@@ -335,7 +335,7 @@ export function ProductTable({
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{resumenLotes(p)}</TableCell>
+                      <TableCell className="hidden md:table-cell">{resumenLotes(p)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <TooltipProvider>
@@ -377,60 +377,66 @@ export function ProductTable({
 
                     {expanded && (
                       <TableRow className="bg-muted/20">
-                        <TableCell />
-                        <TableCell colSpan={9} className="py-5">
-                          <div className="grid lg:grid-cols-5 gap-6 text-sm">
+                        <TableCell colSpan={12} className="py-5 px-4">
+                          {/* Responsive grid: 1 col on mobile, 2 on md, 3 on lg */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-sm">
                             {/* Detalles */}
-                            <div className="space-y-3 lg:col-span-1">
-                              <h4 className="font-semibold flex items-center gap-1 text-[13px]">
-                                <LayoutList className="h-4 w-4" /> Detalles
+                            <div className="space-y-3 p-4 rounded-xl border bg-background/60 backdrop-blur-sm">
+                              <h4 className="font-semibold flex items-center gap-2 text-[13px] border-b pb-2">
+                                <LayoutList className="h-4 w-4 text-cyan-500" /> Detalles
                               </h4>
-                              <Detail
-                                label="Principio activo"
-                                value={p.principioActivo || "—"}
-                              />
-                              <Detail
-                                label="Presentación"
-                                value={p.presentacion || "—"}
-                              />
-                              <Detail
-                                label="Tipo"
-                                value={p.tipoMedicamento || "—"}
-                              />
-                              <Detail
-                                label="Laboratorio"
-                                value={p.laboratorio || "—"}
-                              />
+                              <div className="space-y-2">
+                                <Detail
+                                  label="Principio activo"
+                                  value={p.principioActivo || "—"}
+                                />
+                                <Detail
+                                  label="Presentación"
+                                  value={p.presentacion || "—"}
+                                />
+                                <Detail
+                                  label="Tipo"
+                                  value={p.tipoMedicamento || "—"}
+                                />
+                                <Detail
+                                  label="Laboratorio"
+                                  value={p.laboratorio || "—"}
+                                />
+                                <Detail
+                                  label="N.º Registro Sanitario"
+                                  value={p.nroRegistroSanitario || "—"}
+                                />
+                              </div>
                             </div>
 
                             {/* Lotes */}
-                            <div className="space-y-3 lg:col-span-2">
-                              <h4 className="font-semibold flex items-center gap-1 text-[13px]">
-                                <Package className="h-4 w-4" /> Lotes
+                            <div className="space-y-3 p-4 rounded-xl border bg-background/60 backdrop-blur-sm">
+                              <h4 className="font-semibold flex items-center gap-2 text-[13px] border-b pb-2">
+                                <Package className="h-4 w-4 text-amber-500" /> Lotes
                               </h4>
                               {(p.stocks?.length ?? 0) === 0 && (
-                                <div className="text-xs text-muted-foreground">
-                                  Sin lotes
+                                <div className="text-xs text-muted-foreground py-4 text-center">
+                                  Sin lotes registrados
                                 </div>
                               )}
                               {(p.stocks?.length ?? 0) > 0 && (
-                                <div className="max-h-48 overflow-auto rounded-lg border bg-background/60 backdrop-blur-sm">
-                                  <Table className="text-[11px]">
+                                <div className="max-h-48 overflow-auto rounded-lg border bg-background/60">
+                                  <Table className="text-[11px] min-w-[300px]">
                                     <TableHeader>
                                       <TableRow>
-                                        <TableHead className="py-1">
+                                        <TableHead className="py-1.5 px-2 whitespace-nowrap">
                                           Lote
                                         </TableHead>
-                                        <TableHead className="py-1">
+                                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">
                                           Unid
                                         </TableHead>
-                                        <TableHead className="py-1">
+                                        <TableHead className="py-1.5 px-2 whitespace-nowrap">
                                           Venc
                                         </TableHead>
-                                        <TableHead className="py-1">
+                                        <TableHead className="py-1.5 px-2 text-right whitespace-nowrap">
                                           Compra
                                         </TableHead>
-                                        <TableHead className="py-1">
+                                        <TableHead className="py-1.5 px-2 whitespace-nowrap">
                                           Estado
                                         </TableHead>
                                       </TableRow>
@@ -443,31 +449,30 @@ export function ProductTable({
                                         return (
                                           <TableRow
                                             key={
-                                              // Use a stable composite key: product id + stock identifier + index
                                               `${p.id}-${l.codigoStock ?? `${l.fechaVencimiento}-${l.cantidadUnidades}`}-${li}`
                                             }
                                           >
-                                            <TableCell className="py-1">
+                                            <TableCell className="py-1.5 px-2 font-mono">
                                               {l.codigoStock}
                                             </TableCell>
-                                            <TableCell className="py-1 tabular-nums">
+                                            <TableCell className="py-1.5 px-2 tabular-nums text-right">
                                               {l.cantidadUnidades}
                                             </TableCell>
-                                            <TableCell className="py-1">
+                                            <TableCell className="py-1.5 px-2">
                                               {new Date(
                                                 l.fechaVencimiento
                                               ).toLocaleDateString("es-PE")}
                                             </TableCell>
-                                            <TableCell className="py-1 tabular-nums">
+                                            <TableCell className="py-1.5 px-2 tabular-nums text-right">
                                               S/{" "}
                                               {Number(
                                                 l.precioCompra
                                               ).toFixed(2)}
                                             </TableCell>
-                                            <TableCell className="py-1">
+                                            <TableCell className="py-1.5 px-2">
                                               <Badge
                                                 variant={est.color as any}
-                                                className="h-5 px-1.5 text-[10px] rounded-full"
+                                                className="h-5 px-1.5 text-[10px] rounded-full whitespace-nowrap"
                                               >
                                                 {est.texto}{" "}
                                                 {est.dias >= 0 &&
@@ -481,23 +486,23 @@ export function ProductTable({
                                   </Table>
                                 </div>
                               )}
-                              <div className="pt-3">
+                              <div className="pt-2">
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-8 text-[11px] flex items-center gap-2 text-red-600"
+                                  className="h-8 text-[11px] flex items-center gap-2 text-red-600 hover:text-red-500 hover:bg-red-500/10"
                                   onClick={() => onSetCreatingStockFor({ id: p.id, nombre: p.nombre })}
                                 >
-                                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                                  <AlertTriangle className="h-4 w-4" />
                                   Crear lote sin pedido
                                 </Button>
                               </div>
                             </div>
 
                             {/* Resumen */}
-                            <div className="space-y-3 lg:col-span-2">
-                              <h4 className="font-semibold flex items-center gap-1 text-[13px]">
-                                <Layers className="h-4 w-4" /> Resumen
+                            <div className="space-y-3 p-4 rounded-xl border bg-background/60 backdrop-blur-sm md:col-span-2 xl:col-span-1">
+                              <h4 className="font-semibold flex items-center gap-2 text-[13px] border-b pb-2">
+                                <Layers className="h-4 w-4 text-emerald-500" /> Resumen
                               </h4>
                               <div className="grid grid-cols-2 gap-2 text-[11px]">
                                 <InfoBox
@@ -538,11 +543,11 @@ export function ProductTable({
                                       : "—"
                                   }
                                 />
-                                <div className="col-span-2 pt-1">
+                                <div className="col-span-2 pt-2">
                                   <Button
                                     size="sm"
-                                    variant="ghost"
-                                    className="h-7 text-[11px]"
+                                    variant="outline"
+                                    className="h-7 text-[11px] w-full"
                                     onClick={() => onSetLotesModalProducto(p)}
                                   >
                                     Más acciones de lotes
@@ -560,7 +565,7 @@ export function ProductTable({
               {productos.length === 0 && !loading && (
                 <TableRow>
                   <TableCell
-                    colSpan={11}
+                    colSpan={12}
                     className="py-10 text-center text-muted-foreground"
                   >
                     No se encontraron productos
@@ -569,7 +574,7 @@ export function ProductTable({
               )}
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={11} className="py-10">
+                  <TableCell colSpan={12} className="py-10">
                     <div className="flex flex-col items-center gap-3 text-xs text-muted-foreground">
                       <div className="h-8 w-8 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
                       Cargando...

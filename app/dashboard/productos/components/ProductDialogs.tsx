@@ -92,8 +92,7 @@ export function ProductDialogs({
               {lotesModalProducto?.nombre}
             </DialogTitle>
             <DialogDescription>
-              Código: {lotesModalProducto?.codigoBarras} •{" "}
-              {lotesModalProducto?.stocks?.length || 0} lotes
+              Código: {lotesModalProducto?.codigoBarras} • Registro: {lotesModalProducto?.nroRegistroSanitario || "—"} • {lotesModalProducto?.stocks?.length || 0} lotes
             </DialogDescription>
           </DialogHeader>
           {lotesModalProducto && (

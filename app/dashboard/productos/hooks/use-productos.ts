@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react"
 import { useToast } from "@/lib/use-toast"
-import { fetchWithAuth, crearProducto, actualizarProducto, deleteStock } from "@/lib/api"
+import { fetchWithAuth, crearProducto, actualizarProducto, deleteStock, getProductMetrics } from "@/lib/api"
 import { apiUrl } from "@/lib/config"
 import { Producto, FriendlyErrorInfo } from "../types"
 
@@ -63,6 +63,8 @@ function interpretStockDeletionError(error: any): FriendlyErrorInfo {
 
 function interpretProductUpdateError(error: any): FriendlyErrorInfo {
   const status = extractStatusFromError(error)
+  const backendMsg = (error && ((error as any).backendMessage || (error as any).message || "")) || ""
+  const lowerMsg = String(backendMsg).toLowerCase()
   if (status === 400) {
     return {
       title: "Revisa los datos",
@@ -82,6 +84,13 @@ function interpretProductUpdateError(error: any): FriendlyErrorInfo {
     }
   }
   if (status === 409) {
+    // Detectar si el conflicto viene por número de registro sanitario
+    if (lowerMsg.includes("registro") || lowerMsg.includes("registro sanitario") || lowerMsg.includes("nroregistro") || lowerMsg.includes("nro_registro") || lowerMsg.includes("nro registro")) {
+      return {
+        title: "Número de registro sanitario duplicado",
+        description: "Ya existe un producto con el mismo número de registro sanitario. Usa uno distinto o deja el campo vacío."
+      }
+    }
     return {
       title: "Registro duplicado",
       description: "Ya existe un producto con los mismos datos (nombre o código de barras). Ajusta la información y vuelve a intentar."
@@ -119,6 +128,15 @@ function interpretProductDeletionError(error: any): FriendlyErrorInfo {
   }
 }
 
+function validateRns(value: any): { ok: boolean; message?: string } {
+  const v = typeof value === 'string' ? value.trim() : ''
+  if (!v) return { ok: true }
+  if (v.length > 64) return { ok: false, message: 'N.º Registro Sanitario: máximo 64 caracteres.' }
+  const re = new RegExp('^[A-Za-z0-9\\-\\/\\s]*$')
+  if (!re.test(v)) return { ok: false, message: 'N.º Registro Sanitario: formato inválido.' }
+  return { ok: true }
+}
+
 export function useProductos() {
   const { toast } = useToast()
 
@@ -130,7 +148,7 @@ export function useProductos() {
   const [loading, setLoading] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
   const [diccionarioProveedores, setDiccionarioProveedores] = useState<Record<number, string>>({})
-  
+
   // Paginación
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -153,7 +171,8 @@ export function useProductos() {
     principioActivo: "",
     tipoMedicamento: "GENÉRICO",
     presentacion: "",
-    proveedorIds: [] as number[]
+    proveedorIds: [] as number[],
+    nro_registro_sanitario: ""
   })
 
   // Editar producto
@@ -230,7 +249,7 @@ export function useProductos() {
     cargarProductos()
   }, [cargarProductos, refreshTick])
 
-  /* ------------ MÉTRICAS (GLOBALES vs PAGINADAS) ------------- */
+  /* ------------ MÉTRICAS (desde API Backend) ------------- */
   const [globalMetricas, setGlobalMetricas] = useState<null | {
     productos: number
     unidades: number
@@ -239,54 +258,23 @@ export function useProductos() {
   }>(null)
   const [globalMetricasLoading, setGlobalMetricasLoading] = useState(false)
 
-  function calcularMetricasDesdeArray(arr: Producto[]) {
-    let criticos = 0
-    let totalUnidades = 0
-    let vencidos = 0
-    arr.forEach(p => {
-      totalUnidades += p.cantidadGeneral || 0
-      if (p.cantidadMinima !== undefined && p.cantidadGeneral <= (p.cantidadMinima ?? 0)) criticos++
-        ; (p.stocks || []).forEach(l => {
-          if (calcularDiasParaVencer(l.fechaVencimiento) < 0) vencidos++
-        })
-    })
-    return {
-      productos: arr.length,
-      unidades: totalUnidades,
-      criticos,
-      vencidos
-    }
-  }
-
   const cargarMetricasGlobales = useCallback(async () => {
     try {
       setGlobalMetricasLoading(true)
-      const info = await fetchWithAuth(apiUrl(`/productos?page=0&size=1`))
-      const total = info?.totalElements || (Array.isArray(info) ? info.length : 0)
-
-      if (!total) {
-        setGlobalMetricas({ productos: 0, unidades: 0, criticos: 0, vencidos: 0 })
-        return
-      }
-
-      const lote = 500
-      const pages = Math.max(1, Math.ceil(total / lote))
-      let all: Producto[] = []
-      for (let p = 0; p < pages; p++) {
-        const d = await fetchWithAuth(apiUrl(`/productos?page=${p}&size=${lote}`))
-        const items = d?.content || (Array.isArray(d) ? d : [])
-        all = all.concat(items)
-      }
-
-      const gm = calcularMetricasDesdeArray(all)
-      setGlobalMetricas(gm)
+      const data = await getProductMetrics()
+      setGlobalMetricas({
+        productos: data.totalProductosActivos ?? 0,
+        unidades: data.cantidadTotalUnidades ?? 0,
+        criticos: data.productosStockCritico ?? 0,
+        vencidos: data.lotesVencidos ?? 0
+      })
     } catch (err) {
       console.error("Error cargarMetricasGlobales:", err)
       setGlobalMetricas(null)
     } finally {
       setGlobalMetricasLoading(false)
     }
-  }, [toast])
+  }, [])
 
   useEffect(() => {
     cargarMetricasGlobales()
@@ -294,8 +282,8 @@ export function useProductos() {
 
   const metricas = useMemo(() => {
     if (globalMetricas) return globalMetricas
-    return calcularMetricasDesdeArray(productos)
-  }, [globalMetricas, productos])
+    return { productos: 0, unidades: 0, criticos: 0, vencidos: 0 }
+  }, [globalMetricas])
 
   /* ------------ CRUD NUEVO ------------- */
   async function agregarProducto() {
@@ -306,6 +294,13 @@ export function useProductos() {
         variant: "destructive"
       })
       return
+    }
+
+    // Validate RNS client-side before sending
+    const validRns = validateRns(nuevoProducto.nro_registro_sanitario)
+    if (!validRns.ok) {
+      toast({ title: 'Campo inválido', description: validRns.message, variant: 'destructive' })
+      return false
     }
 
     const totalUnidades = Number(nuevoProducto.cantidad_general) || 0
@@ -326,6 +321,7 @@ export function useProductos() {
       tipoMedicamento: nuevoProducto.tipoMedicamento || null,
       presentacion: nuevoProducto.presentacion && nuevoProducto.presentacion.trim() !== "" ? nuevoProducto.presentacion : null,
       proveedorIds: nuevoProducto.proveedorIds,
+      nroRegistroSanitario: nuevoProducto.nro_registro_sanitario && nuevoProducto.nro_registro_sanitario.trim() !== "" ? nuevoProducto.nro_registro_sanitario : null,
     }
 
     try {
@@ -350,16 +346,23 @@ export function useProductos() {
         tipoMedicamento: "GENÉRICO",
         presentacion: "",
         proveedorIds: [],
+        nro_registro_sanitario: "",
       })
       cargarProductos()
       setRefreshTick(t => t + 1)
       return true
-    } catch {
-      toast({
-        title: "Error",
-        description: "No se pudo agregar",
-        variant: "destructive"
-      })
+    } catch (err) {
+      const status = extractStatusFromError(err)
+      if (status === 409) {
+        const { title, description } = interpretProductUpdateError(err)
+        toast({ title, description, variant: 'destructive' })
+      } else {
+        toast({
+          title: "Error",
+          description: "No se pudo agregar",
+          variant: "destructive"
+        })
+      }
       return false
     }
   }
@@ -382,7 +385,8 @@ export function useProductos() {
       principioActivo: p.principioActivo || "",
       tipoMedicamento: p.tipoMedicamento || "GENÉRICO",
       presentacion: p.presentacion || "",
-      proveedorIds: p.proveedores?.map(prov => prov.id) || []
+      proveedorIds: p.proveedores?.map(prov => prov.id) || [],
+      nro_registro_sanitario: (p as any).nroRegistroSanitario || ""
     })
   }
 
@@ -394,6 +398,13 @@ export function useProductos() {
         description: "Nombre del producto es obligatorio",
         variant: "destructive"
       })
+      return
+    }
+
+    // Validate RNS client-side before sending
+    const validEditRns = validateRns(editandoProducto.nro_registro_sanitario)
+    if (!validEditRns.ok) {
+      toast({ title: 'Campo inválido', description: validEditRns.message, variant: 'destructive' })
       return
     }
 
@@ -424,6 +435,7 @@ export function useProductos() {
       tipoMedicamento: editandoProducto.tipoMedicamento || null,
       presentacion: editandoProducto.presentacion && editandoProducto.presentacion.trim() !== "" ? editandoProducto.presentacion : null,
       proveedorIds: editandoProducto.proveedorIds,
+      nroRegistroSanitario: editandoProducto.nro_registro_sanitario && editandoProducto.nro_registro_sanitario.trim() !== "" ? editandoProducto.nro_registro_sanitario : null,
     }
 
     try {
@@ -535,7 +547,7 @@ export function useProductos() {
     setPriceCompareProduct,
     metricas,
     globalMetricasLoading,
-    
+
     // Actions
     cargarProductos,
     setRefreshTick,

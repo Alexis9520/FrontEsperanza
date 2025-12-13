@@ -21,14 +21,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  ChevronLeft, 
-  ChevronsLeft, 
-  ChevronsRight, 
-  Calendar, 
-  User, 
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
+  Calendar,
+  User,
   AlertCircle,
   ArrowUpCircle,
   ArrowDownCircle,
@@ -60,7 +60,7 @@ export function HistorialCaja({ historial, loading = false, currentPage, pageSiz
   const totalPages = loadAll ? 1 : Math.max(1, Math.ceil((total || 0) / pageSize))
   const startIndex = loadAll ? 0 : currentPage * pageSize
   const endIndex = loadAll ? Math.min(historial.length, total || historial.length) : Math.min(startIndex + pageSize, total || 0)
-  
+
   let paginatedHistorial = historial
   if (loadAll) {
     paginatedHistorial = historial
@@ -101,9 +101,9 @@ export function HistorialCaja({ historial, loading = false, currentPage, pageSiz
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 {total} registros
               </div>
-              <Button 
-                size="sm" 
-                variant={loadAll ? "secondary" : "outline"} 
+              <Button
+                size="sm"
+                variant={loadAll ? "secondary" : "outline"}
                 onClick={handleToggleLoadAll}
                 className="transition-all duration-300 hover:shadow-md"
               >
@@ -175,7 +175,7 @@ export function HistorialCaja({ historial, loading = false, currentPage, pageSiz
               <div className="text-sm text-muted-foreground font-medium">
                 Mostrando <span className="text-foreground">{startIndex + 1}</span> - <span className="text-foreground">{endIndex}</span> de <span className="text-foreground">{total}</span>
               </div>
-              
+
               <div className="flex items-center gap-2 sm:gap-4">
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold hidden sm:inline">Filas por pág.</span>
@@ -195,7 +195,7 @@ export function HistorialCaja({ historial, loading = false, currentPage, pageSiz
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-lg border border-border/30">
                   <Button
                     variant="ghost"
@@ -248,13 +248,13 @@ export function HistorialCaja({ historial, loading = false, currentPage, pageSiz
 
 function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) {
   const [isOpen, setIsOpen] = useState(false)
-  
-  const saldoSistema = caja.saldoFinalCalculado ?? (caja.saldoInicial + caja.totalIngresos - caja.totalEgresos - (caja.ingresosYape || 0))
-  const diferencia = caja.diferencia ?? (caja.saldoFinalDeclarado != null ? caja.saldoFinalDeclarado - saldoSistema : 0)
+
+  const saldoSistema = (caja.saldoInicial + caja.totalIngresos - caja.totalEgresos - (caja.ingresosYape || 0))
+  const diferencia = (caja.saldoFinalDeclarado != null ? caja.saldoFinalDeclarado - saldoSistema : 0)
 
   return (
     <>
-      <TableRow 
+      <TableRow
         className={cn(
           "group transition-all duration-200 cursor-pointer border-b border-border/30",
           isOpen ? "bg-muted/40" : "hover:bg-muted/30"
@@ -262,9 +262,9 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
         onClick={() => setIsOpen(!isOpen)}
       >
         <TableCell className="py-3 pl-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className={cn(
               "h-8 w-8 p-0 rounded-full transition-transform duration-200",
               isOpen && "bg-background shadow-sm rotate-90"
@@ -306,9 +306,9 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
           {caja.saldoFinalDeclarado != null ? (
             <span className={cn(
               "font-mono font-bold tabular-nums px-2 py-0.5 rounded text-xs",
-              diferencia < 0 ? "bg-red-500/10 text-red-600 dark:text-red-400" : 
-              diferencia > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : 
-              "bg-muted text-muted-foreground"
+              diferencia < 0 ? "bg-red-500/10 text-red-600 dark:text-red-400" :
+                diferencia > 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                  "bg-muted text-muted-foreground"
             )}>
               {diferencia > 0 ? "+" : ""}S/ {diferencia.toFixed(2)}
             </span>
@@ -324,8 +324,8 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
             variant="outline"
             className={cn(
               "capitalize shadow-sm",
-              caja.fechaCierre 
-                ? "bg-muted/50 text-muted-foreground border-border/50" 
+              caja.fechaCierre
+                ? "bg-muted/50 text-muted-foreground border-border/50"
                 : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 animate-pulse"
             )}
           >
@@ -337,7 +337,7 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
         <TableCell colSpan={10} className="p-0">
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleContent>
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -378,12 +378,12 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
                       <div className="border-t border-border/50 my-2 pt-2 flex justify-between items-center px-2">
                         <span className="font-medium text-foreground">Total Efectivo Calculado</span>
                         <span className="font-bold text-lg tabular-nums">
-                          S/ {(caja.saldoInicial + caja.totalIngresos - (caja.totalEgresos+ (caja.ingresosYape || 0 ))).toFixed(2)}
+                          S/ {(caja.saldoInicial + caja.totalIngresos - (caja.totalEgresos + (caja.ingresosYape || 0))).toFixed(2)}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Detalles de Cierre */}
                   <div className="space-y-3 bg-background/50 p-4 rounded-xl border border-border/40 shadow-sm">
                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
@@ -396,13 +396,13 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
                             <span className="text-xs text-muted-foreground">Efectivo Declarado</span>
                             <span className="font-bold text-base tabular-nums">S/ {caja.saldoFinalDeclarado?.toFixed(2)}</span>
                           </div>
-                          
+
                           <div className="flex flex-col gap-1 p-2 bg-muted/20 rounded-lg">
                             <span className="text-xs text-muted-foreground">Efectivo Sistema</span>
                             <span className="font-medium text-base tabular-nums">S/ {saldoSistema.toFixed(2)}</span>
                           </div>
                         </div>
-                        
+
                         <div className="flex justify-between items-center p-2 bg-muted/30 rounded-lg border border-border/30">
                           <span className="text-sm font-medium text-muted-foreground">Diferencia</span>
                           <span className={cn(
@@ -412,7 +412,7 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
                             {diferencia > 0 ? "+" : ""}S/ {diferencia.toFixed(2)}
                           </span>
                         </div>
-                        
+
                         {diferencia !== 0 && (
                           <div className="scale-95 origin-left">
                             <DiferenciaCierreCard diferencia={diferencia} />
@@ -457,8 +457,8 @@ function HistorialRow({ caja, index }: { caja: IHistorialCaja; index: number }) 
                             </div>
                             <span className={cn(
                               "font-mono font-medium px-1.5 py-0.5 rounded",
-                              (mov.tipo || "").toUpperCase() === "INGRESO" 
-                                ? "bg-emerald-500/10 text-emerald-600" 
+                              (mov.tipo || "").toUpperCase() === "INGRESO"
+                                ? "bg-emerald-500/10 text-emerald-600"
                                 : "bg-red-500/10 text-red-600"
                             )}>
                               {(mov.tipo || "").toUpperCase() === "INGRESO" ? "+" : "-"} {mov.monto.toFixed(2)}

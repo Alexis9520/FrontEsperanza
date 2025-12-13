@@ -8,7 +8,6 @@ import { VentasHeader } from "./components/VentasHeader"
 import { VentasFilters } from "./components/VentasFilters"
 import { BoletasTable } from "./components/BoletasTable"
 import { PaginationControls } from "./components/PaginationControls"
-import { BackgroundFX, CardGlow } from "./components/Decorations"
 
 export default function VentasPage() {
   const {
@@ -37,15 +36,20 @@ export default function VentasPage() {
   } = useVentas()
 
   return (
-    <div className="relative flex flex-col gap-7">
-      <BackgroundFX />
+    <div className="flex flex-col gap-6 relative p-4 md:p-6 min-h-screen">
+      {/* Fondo estandarizado - igual a Caja/Stock */}
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/30" />
+        <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/[0.03] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-muted/40 rounded-full blur-3xl" />
+      </div>
 
-      <VentasHeader 
-        autoRefrescar={autoRefrescar} 
-        setAutoRefrescar={setAutoRefrescar} 
+      <VentasHeader
+        autoRefrescar={autoRefrescar}
+        setAutoRefrescar={setAutoRefrescar}
       />
 
-      <Card className="relative overflow-hidden border-border/60 backdrop-blur-xl bg-gradient-to-br from-background/70 to-background/40">
+      <Card className="relative overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm">
         <VentasFilters
           busqueda={busquedaBoletas}
           setBusqueda={setBusquedaBoletas}
@@ -62,21 +66,20 @@ export default function VentasPage() {
           onExportPDF={exportarBoletasPDF}
         />
 
-        <CardContent className="relative z-10 space-y-6">
+        <CardContent className="space-y-6">
           {/* Paginación superior */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-border/50">
             <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
                 <CalendarClock className="h-3.5 w-3.5" />
                 Rango:{" "}
                 {rangoFechasBoletas.from
-                  ? `${formatFechaDDMM(rangoFechasBoletas.from)}${
-                      rangoFechasBoletas.to &&
-                      rangoFechasBoletas.to.getTime() !==
-                        rangoFechasBoletas.from.getTime()
-                        ? " → " + formatFechaDDMM(rangoFechasBoletas.to)
-                        : ""
-                    }`
+                  ? `${formatFechaDDMM(rangoFechasBoletas.from)}${rangoFechasBoletas.to &&
+                    rangoFechasBoletas.to.getTime() !==
+                    rangoFechasBoletas.from.getTime()
+                    ? " → " + formatFechaDDMM(rangoFechasBoletas.to)
+                    : ""
+                  }`
                   : "Todos"}
               </span>
               {busquedaBoletas && (
@@ -112,7 +115,7 @@ export default function VentasPage() {
           />
 
           {/* Paginación inferior */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 border-t">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 border-t border-border/50">
             <div className="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
               <span>
                 Mostrando{" "}
@@ -138,8 +141,6 @@ export default function VentasPage() {
             />
           </div>
         </CardContent>
-
-        <CardGlow />
       </Card>
     </div>
   )

@@ -130,29 +130,49 @@ export function useVentas() {
     if (!b.productos || b.productos.length === 0) {
       try {
         const full = (await getBoletaById(b.id)) as BoletaDTO
-        // Some backends return products under `productos`, others under `detalles`.
+        // Prioritize detallesEnriquecidos from backend, fallback to productos/detalles
+        const enrichedDetails: unknown = (full as any).detallesEnriquecidos
         const rawDetails: unknown = (full as any).productos ?? (full as any).detalles ?? []
-        const detailsArr: unknown[] = Array.isArray(rawDetails) ? (rawDetails as unknown[]) : []
-        const detalles: VentaItem[] = detailsArr.map(p => {
-          const obj: any = p || {}
-          return {
-            id: typeof obj.id === "number" ? obj.id : obj.id ? Number(obj.id) : undefined,
-            codBarras: obj.codBarras ?? obj.codigoBarras ?? "",
-            nombre: obj.nombre ?? "",
-            cantidad: Number(obj.cantidad ?? 0),
-            precio: Number(obj.precio ?? obj.precioUnitario ?? 0)
-          }
-        })
+
+        let detalles: VentaItem[]
+
+        if (Array.isArray(enrichedDetails) && enrichedDetails.length > 0) {
+          // Map detallesEnriquecidos to VentaItem format
+          detalles = (enrichedDetails as any[]).map((d: any) => ({
+            id: typeof d.productoId === "number" ? d.productoId : undefined,
+            codBarras: d.codigoBarras ?? "",
+            nombre: d.nombre ?? "",
+            cantidad: Number(d.cantidad ?? 0),
+            precio: Number(d.precioAplicado ?? 0),
+            // Additional enriched data stored for display
+            tipoVenta: d.tipoVenta,
+            subtotal: Number(d.subtotal ?? 0),
+            precioModificado: d.precioModificado ?? false
+          }))
+        } else {
+          // Fallback to old format
+          const detailsArr: unknown[] = Array.isArray(rawDetails) ? (rawDetails as unknown[]) : []
+          detalles = detailsArr.map(p => {
+            const obj: any = p || {}
+            return {
+              id: typeof obj.id === "number" ? obj.id : obj.id ? Number(obj.id) : undefined,
+              codBarras: obj.codBarras ?? obj.codigoBarras ?? "",
+              nombre: obj.nombre ?? "",
+              cantidad: Number(obj.cantidad ?? 0),
+              precio: Number(obj.precio ?? obj.precioUnitario ?? 0)
+            }
+          })
+        }
 
         setBoletas(prev =>
           prev.map(x =>
             x.id === b.id
               ? {
-                  ...x,
-                  productos: detalles,
-                  totalCompra: (full as any).totalCompra ?? x.totalCompra,
-                  vuelto: (full as any).vuelto ?? x.vuelto
-                }
+                ...x,
+                productos: detalles,
+                totalCompra: (full as any).totalCompra ?? x.totalCompra,
+                vuelto: (full as any).vuelto ?? x.vuelto
+              }
               : x
           )
         )

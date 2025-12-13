@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { User, Calendar, Shield, Clock, IdCard } from "lucide-react"
+import { Calendar, Shield, IdCard } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ProfileCardProps {

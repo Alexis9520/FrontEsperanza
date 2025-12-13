@@ -53,7 +53,7 @@ export function useSales() {
   // Box State
   const [cajaAbierta, setCajaAbierta] = useState<boolean | null>(null)
   const [cargandoCaja, setCargandoCaja] = useState(false)
-  
+
   // Sale Status State
   const [ventaStatus, setVentaStatus] = useState<"idle" | "procesando" | "exito" | "generando_boleta" | "error">("idle")
 
@@ -64,12 +64,12 @@ export function useSales() {
       return data
         ? JSON.parse(data)
         : {
-            nombreNegocio: "Nueva Esperanza",
-            direccion: "Av. La Esperanza 403 - El Tambo",
-            telefono: "+51 961 668 320",
-            ruc: "1234567890",
-            moneda: "S/"
-          }
+          nombreNegocio: "Nueva Esperanza",
+          direccion: "Av. La Esperanza 403 - El Tambo",
+          telefono: "+51 961 668 320",
+          ruc: "1234567890",
+          moneda: "S/"
+        }
     }
     return {
       nombreNegocio: "Botica Nueva Esperanza",
@@ -86,12 +86,12 @@ export function useSales() {
       return data
         ? JSON.parse(data)
         : {
-            serieBoleta: "B",
-            mensajePie: "",
-            mostrarLogo: true,
-            imprimirAutomatico: true,
-            formatoImpresion: "80mm"
-          }
+          serieBoleta: "B",
+          mensajePie: "",
+          mostrarLogo: true,
+          imprimirAutomatico: true,
+          formatoImpresion: "80mm"
+        }
     }
     return {
       serieBoleta: "B",
@@ -236,12 +236,12 @@ export function useSales() {
     const arr = Array.isArray(productos) ? productos : []
     const base = mostrarResultados
       ? arr.filter(p =>
-          (p.nombre ?? "").toLowerCase().includes(q) ||
-          (p.codigoBarras ?? "").toLowerCase().includes(q) ||
-          (p.laboratorio ?? "").toLowerCase().includes(q) ||
-          (p.concentracion ?? "").toLowerCase().includes(q) ||
-          (p.tipoMedicamento ?? "").toLowerCase().includes(q)
-        )
+        (p.nombre ?? "").toLowerCase().includes(q) ||
+        (p.codigoBarras ?? "").toLowerCase().includes(q) ||
+        (p.laboratorio ?? "").toLowerCase().includes(q) ||
+        (p.concentracion ?? "").toLowerCase().includes(q) ||
+        (p.tipoMedicamento ?? "").toLowerCase().includes(q)
+      )
       : []
     base.sort((a, b) => {
       const mul = sortDir === "asc" ? 1 : -1
@@ -344,7 +344,24 @@ export function useSales() {
 
     const sel = blisterUnidadSeleccion[selectionKey] || { blisters: 0, unidades: 0 }
     const unidadesPorBlister = producto.cantidadUnidadesBlister || 0
-    const cantidadTotal = unidadesPorBlister * sel.blisters + sel.unidades
+
+    // Auto-convert units to blisters if units >= unidadesPorBlister
+    let blistersToAdd = sel.blisters
+    let unidadesToAdd = sel.unidades
+
+    if (unidadesPorBlister > 0 && unidadesToAdd >= unidadesPorBlister) {
+      const extraBlisters = Math.floor(unidadesToAdd / unidadesPorBlister)
+      const remainingUnits = unidadesToAdd % unidadesPorBlister
+      blistersToAdd = blistersToAdd + extraBlisters
+      unidadesToAdd = remainingUnits
+
+      toast({
+        title: "Blister agregado",
+        description: `Se convirtieron ${extraBlisters * unidadesPorBlister} unidades en ${extraBlisters} blister(s) de ${unidadesPorBlister} unidades.`,
+      })
+    }
+
+    const cantidadTotal = unidadesPorBlister * blistersToAdd + unidadesToAdd
     if (cantidadTotal <= 0) {
       toast({ title: "Cantidad inválida", description: "Agrega al menos 1 unidad o blister", variant: "destructive" })
       return
@@ -365,9 +382,19 @@ export function useSales() {
       const precioBlister = producto.precioVentaBlister ?? 0
 
       if (existing) {
-        const newB = existing.cantidadBlister + sel.blisters
-        const newU = existing.cantidadUnidad + sel.unidades
-        const nuevoTotalUnidades = unidadesPorBlister * newB + newU
+        const newB = existing.cantidadBlister + blistersToAdd
+        let newU = existing.cantidadUnidad + unidadesToAdd
+
+        // Also check for auto-conversion when adding to existing item
+        let finalB = newB
+        let finalU = newU
+        if (unidadesPorBlister > 0 && finalU >= unidadesPorBlister) {
+          const extraBlisters = Math.floor(finalU / unidadesPorBlister)
+          finalB = finalB + extraBlisters
+          finalU = finalU % unidadesPorBlister
+        }
+
+        const nuevoTotalUnidades = unidadesPorBlister * finalB + finalU
         if (nuevoTotalUnidades > existing.stockDisponible) {
           toast({
             title: "Stock insuficiente",
@@ -379,21 +406,21 @@ export function useSales() {
         return prev.map(p =>
           existing.id !== undefined && existing.id !== null
             ? (p.id === existing.id
-                ? {
-                    ...p,
-                    cantidadBlister: newB,
-                    cantidadUnidad: newU,
-                    subtotal: precioBlister * newB + precioUnidadFinal * newU
-                  }
-                : p)
+              ? {
+                ...p,
+                cantidadBlister: finalB,
+                cantidadUnidad: finalU,
+                subtotal: precioBlister * finalB + precioUnidadFinal * finalU
+              }
+              : p)
             : (p.codigoBarras === existing.codigoBarras
-                ? {
-                    ...p,
-                    cantidadBlister: newB,
-                    cantidadUnidad: newU,
-                    subtotal: precioBlister * newB + precioUnidadFinal * newU
-                  }
-                : p)
+              ? {
+                ...p,
+                cantidadBlister: finalB,
+                cantidadUnidad: finalU,
+                subtotal: precioBlister * finalB + precioUnidadFinal * finalU
+              }
+              : p)
         )
       }
 
@@ -407,23 +434,26 @@ export function useSales() {
           precioVentaBlister: producto.precioVentaBlister,
           cantidadUnidadesBlister: producto.cantidadUnidadesBlister,
           descuento: producto.descuento,
-          cantidadBlister: sel.blisters,
-          cantidadUnidad: sel.unidades,
-          subtotal: precioBlister * sel.blisters + precioUnidadFinal * sel.unidades,
+          cantidadBlister: blistersToAdd,
+          cantidadUnidad: unidadesToAdd,
+          subtotal: precioBlister * blistersToAdd + precioUnidadFinal * unidadesToAdd,
           stockDisponible: producto.cantidadGeneral
         }
       ]
     })
-    
+
     // Optional: Clear selection after adding
     setBlisterUnidadSeleccion(prev => ({
-        ...prev,
-        [selectionKey]: { blisters: 0, unidades: 0 }
+      ...prev,
+      [selectionKey]: { blisters: 0, unidades: 0 }
     }))
     // Optional: Clear search? No, user might want to add more.
   }
 
   const cambiarCantidadCarrito = (codigoBarras: string, tipo: "blister" | "unidad", delta: number) => {
+    // Track pending toast messages to show after state update
+    let pendingToast: { title: string; description: string; variant?: "destructive" } | null = null
+
     setCarrito(prev =>
       prev
         .map(item => {
@@ -437,25 +467,26 @@ export function useSales() {
           if (!match) return item
 
           if ((!item.codigoBarras || !item.codigoBarras.trim()) && (item.id === undefined || item.id === null)) {
-            toast({
+            pendingToast = {
               title: "Código inválido",
               description: "Este producto no tiene código de barras ni identificador.",
               variant: "destructive"
-            })
+            }
             return item
           }
 
           const precioUnidadFinal = item.precioVentaUnd - (item.descuento ?? 0)
           if (precioUnidadFinal <= 0) {
-            toast({
+            pendingToast = {
               title: "Precio inválido",
               description: `El producto "${item.nombre}" tiene precio unidad <= 0.`,
               variant: "destructive"
-            })
+            }
             return item
           }
 
           const stockMax = item.stockDisponible
+          const unidadesPorBlister = item.cantidadUnidadesBlister || 0
           let nb = item.cantidadBlister
           let nu = item.cantidadUnidad
 
@@ -463,16 +494,28 @@ export function useSales() {
             nb = Math.max(0, nb + delta)
           } else {
             nu = Math.max(0, nu + delta)
+
+            // Auto-convert units to blisters when units >= unidadesPorBlister
+            if (unidadesPorBlister > 0 && nu >= unidadesPorBlister) {
+              const blistersToAdd = Math.floor(nu / unidadesPorBlister)
+              const remainingUnits = nu % unidadesPorBlister
+              nb = nb + blistersToAdd
+              nu = remainingUnits
+
+              pendingToast = {
+                title: "Blister agregado",
+                description: `Se convirtieron ${blistersToAdd * unidadesPorBlister} unidades en ${blistersToAdd} blister(s) de ${unidadesPorBlister} unidades.`,
+              }
+            }
           }
 
-          const unidadesPorBlister = item.cantidadUnidadesBlister || 0
           const totalTemp = unidadesPorBlister * nb + nu
           if (totalTemp > stockMax) {
-            toast({
+            pendingToast = {
               title: "Stock insuficiente",
               description: `Máximo ${stockMax} unidades`,
               variant: "destructive"
-            })
+            }
             return item
           }
           const precioBlister = item.precioVentaBlister ?? 0
@@ -485,6 +528,11 @@ export function useSales() {
         })
         .filter(i => i.cantidadBlister > 0 || i.cantidadUnidad > 0)
     )
+
+    // Show toast after state update is complete (deferred to avoid setState-during-render)
+    if (pendingToast) {
+      setTimeout(() => toast(pendingToast!), 0)
+    }
   }
 
   const eliminarDelCarrito = (codigoBarras: string) => {
@@ -578,7 +626,7 @@ export function useSales() {
         nombre: metodoPago.toUpperCase(),
         efectivo: (metodoPago === "efectivo" || metodoPago === "mixto") ? Number(montoEfectivo) : 0.0,
         digital: metodoPago === "yape" ? (Number(montoYape) - vuelto) : (metodoPago === "mixto" ? Number(montoYape) : 0),
-        efectivoFix: metodoPago === "efectivo" 
+        efectivoFix: metodoPago === "efectivo"
           ? total
           : (metodoPago === "mixto" ? (total - (Number(montoYape) || 0)) : 0)
       }
@@ -643,18 +691,19 @@ export function useSales() {
             auto: !!configuracionBoleta.imprimirAutomatico
           })
         )
-      } catch {}
+      } catch { }
 
       try {
         await cargarProductos({ q: debouncedBusqueda, page: 1, size: pageSize })
-      } catch {}
+      } catch { }
 
       setCarrito([])
       setMontoEfectivo("")
       setMontoYape("")
       setMostrarResultados(false)
-      setDniCliente("")
-      setNombreCliente("")
+      // Reset to default values instead of empty strings
+      setDniCliente("00000000")
+      setNombreCliente("CLIENTE GENERAL")
       setTimeout(() => setVentaStatus("idle"), 2500)
     } catch (e: any) {
       setVentaStatus("error")
